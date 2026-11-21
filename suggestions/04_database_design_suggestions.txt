@@ -1,0 +1,477 @@
+================================================================================
+SUGGESTION FILE 4: DATABASE DESIGN & SQL SCHEMA RECOMMENDATIONS
+SaansSaathi - Complete MySQL Schema with Explanations
+================================================================================
+
+================================================================================
+SECTION A: COMPLETE SQL SCHEMA
+================================================================================
+
+-- ============================================================
+-- TABLE: users
+-- Purpose: User accounts
+-- ============================================================
+CREATE TABLE users (
+    id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    email           VARCHAR(255) NOT NULL UNIQUE,
+    password_hash   VARCHAR(255) NOT NULL,
+    full_name       VARCHAR(100) NOT NULL,
+    phone           VARCHAR(15),
+    role            ENUM('USER', 'ADMIN') NOT NULL DEFAULT 'USER',
+    is_verified     BOOLEAN NOT NULL DEFAULT FALSE,
+    is_active       BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    last_login_at   DATETIME,
+    INDEX idx_email (email),
+    INDEX idx_role (role)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- TABLE: refresh_tokens
+-- Purpose: Store valid refresh tokens (allows logout/revocation)
+-- ============================================================
+CREATE TABLE refresh_tokens (
+    id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id     BIGINT UNSIGNED NOT NULL,
+    token_hash  VARCHAR(255) NOT NULL UNIQUE,
+    expires_at  DATETIME NOT NULL,
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    is_revoked  BOOLEAN NOT NULL DEFAULT FALSE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_token_hash (token_hash),
+    INDEX idx_user_expires (user_id, expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- TABLE: cities
+-- Purpose: Reference data for Indian cities + coordinates
+-- ============================================================
+CREATE TABLE cities (
+    id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name        VARCHAR(100) NOT NULL,
+    state       VARCHAR(100) NOT NULL,
+    country     VARCHAR(50) NOT NULL DEFAULT 'India',
+    latitude    DECIMAL(9,6) NOT NULL,
+    longitude   DECIMAL(9,6) NOT NULL,
+    is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+    INDEX idx_name (name),
+    INDEX idx_coordinates (latitude, longitude)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- TABLE: user_locations
+-- Purpose: Locations saved by users
+-- ============================================================
+CREATE TABLE user_locations (
+    id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id         BIGINT UNSIGNED NOT NULL,
+    name            VARCHAR(100) NOT NULL,          -- e.g., "Home", "Office", "School"
+    area_name       VARCHAR(150),                   -- e.g., "Bavdhan, Pune"
+    latitude        DECIMAL(9,6) NOT NULL,
+    longitude       DECIMAL(9,6) NOT NULL,
+    city_id         INT UNSIGNED,
+    is_primary      BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (city_id) REFERENCES cities(id),
+    INDEX idx_user (user_id),
+    INDEX idx_primary (user_id, is_primary)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- TABLE: monitoring_stations
+-- Purpose: Air quality monitoring station metadata
+-- ============================================================
+CREATE TABLE monitoring_stations (
+    id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    openaq_id       VARCHAR(50),                    -- OpenAQ location ID
+    name            VARCHAR(200) NOT NULL,
+    city_id         INT UNSIGNED,
+    area_name       VARCHAR(150),
+    latitude        DECIMAL(9,6) NOT NULL,
+    longitude       DECIMAL(9,6) NOT NULL,
+    provider        VARCHAR(100),                   -- e.g., "CPCB", "MPCB"
+    is_active       BOOLEAN NOT NULL DEFAULT TRUE,
+    last_seen       DATETIME,
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (city_id) REFERENCES cities(id),
+    INDEX idx_city (city_id),
+    INDEX idx_coordinates (latitude, longitude),
+    INDEX idx_openaq_id (openaq_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- TABLE: pollutants
+-- Purpose: Pollutant definitions and Indian safe limits
+-- ============================================================
+CREATE TABLE pollutants (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    code            VARCHAR(20) NOT NULL UNIQUE,    -- e.g., "PM25", "PM10", "NO2"
+    name            VARCHAR(100) NOT NULL,          -- e.g., "PM2.5"
+    full_name       VARCHAR(200),                   -- e.g., "Particulate Matter 2.5"
+    unit            VARCHAR(20) NOT NULL,           -- e.g., "µg/m³", "ppm"
+    cpcb_safe_limit DECIMAL(8,2),                   -- 24h average safe limit per CPCB
+    who_guideline   DECIMAL(8,2),                   -- WHO 2021 guideline
+    description     TEXT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- TABLE: aqi_readings
+-- Purpose: AQI readings per station per time (historical store)
+-- ============================================================
+CREATE TABLE aqi_readings (
+    id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    station_id      BIGINT UNSIGNED NOT NULL,
+    aqi_value       INT UNSIGNED NOT NULL,
+    aqi_category    ENUM('GOOD','SATISFACTORY','MODERATE','POOR','VERY_POOR','SEVERE') NOT NULL,
+    dominant_pollutant VARCHAR(20),
+    source          VARCHAR(50) NOT NULL DEFAULT 'OPENAQ',
+    measured_at     DATETIME NOT NULL,              -- UTC timestamp of measurement
+    fetched_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (station_id) REFERENCES monitoring_stations(id),
+    INDEX idx_station_time (station_id, measured_at),
+    INDEX idx_measured_at (measured_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- TABLE: pollutant_readings
+-- Purpose: Individual pollutant measurements per AQI reading
+-- ============================================================
+CREATE TABLE pollutant_readings (
+    id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    aqi_reading_id  BIGINT UNSIGNED NOT NULL,
+    pollutant_id    INT UNSIGNED NOT NULL,
+    value           DECIMAL(10,3) NOT NULL,
+    unit            VARCHAR(20) NOT NULL,
+    sub_index       INT UNSIGNED,                   -- Calculated AQI sub-index for this pollutant
+    FOREIGN KEY (aqi_reading_id) REFERENCES aqi_readings(id) ON DELETE CASCADE,
+    FOREIGN KEY (pollutant_id) REFERENCES pollutants(id),
+    INDEX idx_aqi_reading (aqi_reading_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- TABLE: weather_readings
+-- Purpose: Weather observations (from Open-Meteo)
+-- ============================================================
+CREATE TABLE weather_readings (
+    id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    latitude        DECIMAL(9,6) NOT NULL,
+    longitude       DECIMAL(9,6) NOT NULL,
+    temperature     DECIMAL(5,2),
+    humidity        TINYINT UNSIGNED,               -- 0-100 %
+    wind_speed      DECIMAL(6,2),                   -- km/h
+    wind_direction  SMALLINT UNSIGNED,              -- degrees 0-360
+    weather_code    SMALLINT,                       -- WMO weather code
+    is_foggy        BOOLEAN,
+    measured_at     DATETIME NOT NULL,
+    INDEX idx_location_time (latitude, longitude, measured_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- TABLE: family_groups
+-- Purpose: One user can have one family group
+-- ============================================================
+CREATE TABLE family_groups (
+    id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id     BIGINT UNSIGNED NOT NULL UNIQUE,    -- One family per user
+    family_name VARCHAR(100) NOT NULL,
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- TABLE: family_members
+-- Purpose: Individual family member profiles
+-- ============================================================
+CREATE TABLE family_members (
+    id                      BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    family_group_id         BIGINT UNSIGNED NOT NULL,
+    name                    VARCHAR(100) NOT NULL,
+    age_group               ENUM('CHILD','ADULT','SENIOR') NOT NULL DEFAULT 'ADULT',
+    birth_year              SMALLINT UNSIGNED,              -- Optional for age calculation
+    sensitive_category      ENUM('NONE','RESPIRATORY','CARDIOVASCULAR','BOTH') DEFAULT 'NONE',
+    daily_outdoor_hours     TINYINT UNSIGNED DEFAULT 1,     -- Hours spent outdoors daily
+    work_schedule_start     TIME,                           -- e.g., 09:00:00
+    work_schedule_end       TIME,                           -- e.g., 18:00:00
+    exercise_preference     ENUM('OUTDOOR','INDOOR','NONE') DEFAULT 'NONE',
+    is_active               BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at              DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at              DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (family_group_id) REFERENCES family_groups(id) ON DELETE CASCADE,
+    INDEX idx_family_group (family_group_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- TABLE: daily_routines
+-- Purpose: AI/system generated daily routines
+-- ============================================================
+CREATE TABLE daily_routines (
+    id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id         BIGINT UNSIGNED NOT NULL,
+    routine_date    DATE NOT NULL,
+    generated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    aqi_at_gen      INT UNSIGNED,                           -- AQI when routine was generated
+    is_custom       BOOLEAN NOT NULL DEFAULT FALSE,         -- Was manually modified
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY uk_user_date (user_id, routine_date),
+    INDEX idx_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- TABLE: routine_activities
+-- Purpose: Individual activities in a daily routine
+-- ============================================================
+CREATE TABLE routine_activities (
+    id                  BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    routine_id          BIGINT UNSIGNED NOT NULL,
+    family_member_id    BIGINT UNSIGNED,                     -- NULL = applies to everyone
+    start_time          TIME NOT NULL,
+    end_time            TIME NOT NULL,
+    activity_name       VARCHAR(200) NOT NULL,
+    original_activity   VARCHAR(200),                        -- What they normally do
+    recommendation      TEXT NOT NULL,                       -- What we recommend
+    reason              VARCHAR(500),                        -- Why this change
+    type                ENUM('OUTDOOR','INDOOR','TRAVEL','EXERCISE','WORK') DEFAULT 'INDOOR',
+    risk_level          ENUM('LOW','MEDIUM','HIGH') DEFAULT 'LOW',
+    is_completed        BOOLEAN NOT NULL DEFAULT FALSE,
+    completed_at        DATETIME,
+    FOREIGN KEY (routine_id) REFERENCES daily_routines(id) ON DELETE CASCADE,
+    FOREIGN KEY (family_member_id) REFERENCES family_members(id) ON DELETE SET NULL,
+    INDEX idx_routine (routine_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- TABLE: indoor_assessments
+-- Purpose: Home air quality assessment submissions
+-- ============================================================
+CREATE TABLE indoor_assessments (
+    id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id         BIGINT UNSIGNED NOT NULL,
+    room_count      TINYINT UNSIGNED NOT NULL DEFAULT 2,
+    window_count    TINYINT UNSIGNED NOT NULL DEFAULT 4,
+    floor_number    TINYINT UNSIGNED DEFAULT 1,
+    total_floors    TINYINT UNSIGNED DEFAULT 4,
+    has_air_purifier BOOLEAN DEFAULT FALSE,
+    has_exhaust_fan  BOOLEAN DEFAULT FALSE,
+    has_chimney      BOOLEAN DEFAULT FALSE,
+    cooking_fuel    ENUM('LPG','BIOMASS','ELECTRIC','PIPED_GAS','NONE') DEFAULT 'LPG',
+    uses_incense    BOOLEAN DEFAULT FALSE,
+    uses_mosquito_coil BOOLEAN DEFAULT FALSE,
+    has_smoking_member BOOLEAN DEFAULT FALSE,
+    budget_rupees   INT UNSIGNED DEFAULT 0,
+    has_children    BOOLEAN DEFAULT FALSE,
+    has_seniors     BOOLEAN DEFAULT FALSE,
+    additional_notes TEXT,
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- TABLE: notifications
+-- Purpose: User notifications
+-- ============================================================
+CREATE TABLE notifications (
+    id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id         BIGINT UNSIGNED NOT NULL,
+    type            ENUM('AQI_ALERT','FAMILY_ALERT','MORNING_BRIEFING',
+                         'INDOOR_TIP','CHALLENGE_UPDATE','SYSTEM') NOT NULL,
+    title           VARCHAR(200) NOT NULL,
+    message         TEXT NOT NULL,
+    is_read         BOOLEAN NOT NULL DEFAULT FALSE,
+    action_url      VARCHAR(500),                           -- Optional deep link
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    read_at         DATETIME,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_user_read (user_id, is_read),
+    INDEX idx_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- TABLE: user_preferences
+-- Purpose: User settings and notification preferences
+-- ============================================================
+CREATE TABLE user_preferences (
+    id                  BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id             BIGINT UNSIGNED NOT NULL UNIQUE,
+    timezone            VARCHAR(50) DEFAULT 'Asia/Kolkata',
+    aqi_alert_threshold INT DEFAULT 200,                    -- Alert when AQI > this
+    morning_briefing    BOOLEAN DEFAULT TRUE,
+    email_notifications BOOLEAN DEFAULT FALSE,
+    push_notifications  BOOLEAN DEFAULT TRUE,
+    aqi_unit            ENUM('INDIAN','US') DEFAULT 'INDIAN',
+    language            VARCHAR(10) DEFAULT 'en',
+    dark_mode           BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- TABLE: chat_sessions
+-- Purpose: AI chatbot conversation sessions
+-- ============================================================
+CREATE TABLE chat_sessions (
+    id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id     BIGINT UNSIGNED NOT NULL,
+    title       VARCHAR(200),                               -- Auto-generated from first message
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_active DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_user (user_id, last_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- TABLE: chat_messages
+-- Purpose: Individual messages in chat sessions
+-- ============================================================
+CREATE TABLE chat_messages (
+    id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    session_id  BIGINT UNSIGNED NOT NULL,
+    role        ENUM('USER', 'ASSISTANT') NOT NULL,
+    content     TEXT NOT NULL,
+    tokens_used INT UNSIGNED,                               -- Track Gemini token usage
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE,
+    INDEX idx_session_time (session_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- TABLE: clean_air_challenges
+-- Purpose: Available challenges for users
+-- ============================================================
+CREATE TABLE clean_air_challenges (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    title           VARCHAR(200) NOT NULL,
+    description     TEXT NOT NULL,
+    category        ENUM('TRANSPORT','HOME','HEALTH','COMMUNITY') NOT NULL,
+    duration_days   TINYINT UNSIGNED NOT NULL DEFAULT 7,
+    points_reward   INT UNSIGNED DEFAULT 10,
+    is_active       BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- TABLE: challenge_participants
+-- Purpose: User challenge participation and progress
+-- ============================================================
+CREATE TABLE challenge_participants (
+    id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id         BIGINT UNSIGNED NOT NULL,
+    challenge_id    INT UNSIGNED NOT NULL,
+    start_date      DATE NOT NULL,
+    end_date        DATE,
+    days_completed  TINYINT UNSIGNED DEFAULT 0,
+    is_completed    BOOLEAN DEFAULT FALSE,
+    completed_at    DATETIME,
+    points_earned   INT UNSIGNED DEFAULT 0,
+    joined_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (challenge_id) REFERENCES clean_air_challenges(id),
+    UNIQUE KEY uk_user_challenge (user_id, challenge_id),
+    INDEX idx_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- TABLE: reported_incidents
+-- Purpose: Community-reported pollution incidents
+-- ============================================================
+CREATE TABLE reported_incidents (
+    id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id         BIGINT UNSIGNED NOT NULL,
+    incident_type   ENUM('BURNING','CONSTRUCTION_DUST','INDUSTRIAL',
+                         'VEHICLE','OTHER') NOT NULL,
+    description     VARCHAR(500),
+    latitude        DECIMAL(9,6) NOT NULL,
+    longitude       DECIMAL(9,6) NOT NULL,
+    area_name       VARCHAR(150),
+    status          ENUM('PENDING','REVIEWED','DISMISSED') DEFAULT 'PENDING',
+    reported_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_location (latitude, longitude),
+    INDEX idx_reported_at (reported_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+================================================================================
+SECTION B: SEED DATA RECOMMENDATIONS
+================================================================================
+
+TOP 20 INDIAN CITIES TO SEED:
+  Delhi (28.6139, 77.2090)
+  Mumbai (19.0760, 72.8777)
+  Kolkata (22.5726, 88.3639)
+  Chennai (13.0827, 80.2707)
+  Bangalore (12.9716, 77.5946)
+  Hyderabad (17.3850, 78.4867)
+  Pune (18.5204, 73.8567)
+  Ahmedabad (23.0225, 72.5714)
+  Jaipur (26.9124, 75.7873)
+  Lucknow (26.8467, 80.9462)
+  Kanpur (26.4499, 80.3319)
+  Nagpur (21.1458, 79.0882)
+  Indore (22.7196, 75.8577)
+  Bhopal (23.2599, 77.4126)
+  Patna (25.5941, 85.1376)
+  Agra (27.1767, 78.0081)
+  Varanasi (25.3176, 82.9739)
+  Meerut (28.9845, 77.7064)
+  Gurgaon (28.4595, 77.0266)
+  Noida (28.5355, 77.3910)
+
+DEFAULT CHALLENGES TO SEED:
+  1. "7-Day Public Transport Challenge" (TRANSPORT, 7 days, 10 points)
+  2. "No Car Idling Week" (TRANSPORT, 7 days, 10 points)
+  3. "Carpool Challenge" (TRANSPORT, 14 days, 20 points)
+  4. "Smoke-Free Home Week" (HOME, 7 days, 15 points)
+  5. "No Incense Week" (HOME, 7 days, 10 points)
+  6. "Damp Mop Challenge" (HOME, 7 days, 10 points)
+  7. "Air Filter Check" (HOME, 1 day, 5 points)
+  8. "Indoor Exercise Week" (HEALTH, 7 days, 10 points)
+  9. "Mask Up Week" (HEALTH, 7 days, 10 points)
+  10. "Combine Errands Challenge" (TRANSPORT, 7 days, 10 points)
+
+POLLUTANTS TO SEED:
+  Code   | Name  | Unit   | CPCB 24h Limit | WHO 24h Guideline
+  PM25   | PM2.5 | µg/m³  | 60             | 15
+  PM10   | PM10  | µg/m³  | 100            | 45
+  NO2    | NO2   | µg/m³  | 80             | 25
+  SO2    | SO2   | µg/m³  | 80             | 40
+  CO     | CO    | mg/m³  | 2              | 4
+  O3     | O3    | µg/m³  | 180            | 100
+
+================================================================================
+SECTION C: DATABASE MAINTENANCE RECOMMENDATIONS
+================================================================================
+
+DATA RETENTION POLICY:
+  - aqi_readings: Keep 90 days of data, then archive/delete
+  - pollutant_readings: Same as aqi_readings (cascade delete)
+  - weather_readings: Keep 30 days
+  - chat_messages: Keep 1 year per user
+  - notifications: Keep 90 days per user, delete read ones after 30 days
+
+AUTOMATED CLEANUP JOB:
+  @Scheduled(cron = "0 0 2 * * ?")  // 2 AM every day
+  public void cleanupOldData() {
+    aqiReadingRepository.deleteByMeasuredAtBefore(
+      LocalDateTime.now().minusDays(90)
+    );
+  }
+
+BACKUP STRATEGY:
+  - Railway.app: Automatic daily backups (included in paid plan)
+  - For free tier: Weekly manual export using mysqldump
+  - Store backups in Google Drive or AWS S3
+
+CONNECTION POOLING:
+  Add to application.yml:
+    datasource:
+      hikari:
+        maximum-pool-size: 10
+        minimum-idle: 2
+        connection-timeout: 30000
+        idle-timeout: 600000
+        max-lifetime: 1800000
+
+================================================================================
+END OF DATABASE DESIGN SUGGESTIONS
+================================================================================

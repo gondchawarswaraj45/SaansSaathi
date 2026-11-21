@@ -1,0 +1,854 @@
+================================================================================
+SAANSSAATHI - COMPLETE DEVELOPMENT TASK LIST
+AI-Powered Urban Air Quality & Family Health Protection Platform
+================================================================================
+Tagline: Breathe Better. Live Smarter.
+Stack: React + TypeScript (Frontend) | Java Spring Boot (Backend) | MySQL (DB)
+Target Deploy: Vercel (Frontend) | Render (Backend) | PlanetScale/Railway (DB)
+================================================================================
+
+LEGEND:
+[ ] = Not started
+[~] = In progress
+[x] = Completed
+[!] = Blocked / Needs attention
+
+================================================================================
+STEP 1: PROJECT SETUP & REPOSITORY FOUNDATION
+Status: [x] Completed
+Estimated Time: 1-2 days
+================================================================================
+
+TASK 1.1 - Root Project Setup
+-------------------------------
+[x] 1.1.1  Initialize Git repository at project root (saansSaathi/)
+[x] 1.1.2  Create .gitignore covering Java, Node, IDE files, .env files
+[x] 1.1.3  Create root README.md with project overview, tech stack, setup guide
+[x] 1.1.4  Create docker-compose.yml for local dev (MySQL + Spring Boot + React)
+[x] 1.1.5  Create .env.example files for both frontend and backend
+[x] 1.1.6  Set up GitHub repository and push initial commit
+
+TASK 1.2 - Frontend (React + TypeScript) Initialization
+---------------------------------------------------------
+[x] 1.2.1  Scaffold React app using Vite + TypeScript template
+           Command: npm create vite@latest frontend -- --template react-ts
+[x] 1.2.2  Install core dependencies:
+           - tailwindcss, postcss, autoprefixer (styling)
+           - @shadcn/ui (component library)
+           - react-router-dom v6 (routing)
+           - axios (HTTP client)
+           - zustand (state management)
+           - recharts (data charts)
+           - leaflet + react-leaflet (maps)
+           - @types/leaflet
+           - lucide-react (icons)
+           - date-fns (date utilities)
+           - react-hot-toast (notifications)
+[x] 1.2.3  Configure Tailwind CSS (tailwind.config.ts + postcss.config.js)
+[x] 1.2.4  Set up shadcn/ui with custom theme (forest-green + sky-blue palette)
+[x] 1.2.5  Configure path aliases in vite.config.ts (@ -> src/)
+[x] 1.2.6  Create .env and .env.example with VITE_API_BASE_URL variable
+[x] 1.2.7  Set up ESLint + Prettier configuration
+[x] 1.2.8  Create base folder structure as defined in architecture docs
+
+TASK 1.3 - Backend (Spring Boot) Initialization
+-------------------------------------------------
+[x] 1.3.1  Generate Spring Boot project via Spring Initializr with:
+           - Java 17
+           - Maven
+           - Spring Web
+           - Spring Data JPA
+           - Spring Security
+           - Spring Validation
+           - Spring Scheduler
+           - MySQL Driver
+           - Lombok
+           - Spring Boot DevTools
+[x] 1.3.2  Add additional dependencies to pom.xml:
+           - jjwt (JWT token library)
+           - springdoc-openapi-ui (Swagger docs)
+           - google-cloud-vertexai or Gemini SDK
+           - flyway-core (DB migrations)
+[x] 1.3.3  Configure application.yml for dev/prod profiles
+[x] 1.3.4  Set up environment variable loading (application-dev.yml, application-prod.yml)
+[x] 1.3.5  Configure CORS to allow requests from frontend origin
+[x] 1.3.6  Create global exception handler (GlobalExceptionHandler.java)
+[x] 1.3.7  Create standard API response wrapper (ApiResponse.java)
+[x] 1.3.8  Set up Swagger/OpenAPI documentation configuration
+
+TASK 1.4 - Database (MySQL) Setup
+-----------------------------------
+[x] 1.4.1  Install MySQL 8.0 locally (or use Docker container)
+[x] 1.4.2  Create database: saanssaathi_db
+[x] 1.4.3  Create database user with appropriate privileges
+[x] 1.4.4  Configure Flyway migrations directory (resources/db/migration)
+[x] 1.4.5  Write V1__create_initial_schema.sql with all 23 tables
+[x] 1.4.6  Write V2__seed_initial_data.sql with:
+           - Indian cities (top 50 by population)
+           - Pollutant definitions (PM2.5, PM10, NO2, SO2, CO, O3)
+           - CPCB AQI category thresholds
+           - Sample monitoring station data
+[x] 1.4.7  Verify Flyway migrations run successfully on startup
+[x] 1.4.8  Create ER diagram (docs/er-diagram.png or .md)
+
+STEP 1 DELIVERABLES:
+- Working monorepo with frontend + backend directories
+- React app renders at localhost:5173
+- Spring Boot starts at localhost:8080
+- MySQL running with schema created
+- Both apps connect successfully
+
+================================================================================
+STEP 2: AUTHENTICATION & USER MANAGEMENT
+Status: [ ] Not Started
+Estimated Time: 2-3 days
+Prerequisites: Step 1 complete
+================================================================================
+
+TASK 2.1 - Backend Auth Implementation
+----------------------------------------
+[ ] 2.1.1  Create User entity (users table) with fields:
+           id, email, password_hash, full_name, phone, city,
+           role (USER/ADMIN), is_verified, created_at, updated_at
+[ ] 2.1.2  Create UserRepository extending JpaRepository
+[ ] 2.1.3  Create RegisterRequest DTO (email, password, fullName, phone, city)
+[ ] 2.1.4  Create LoginRequest DTO (email, password)
+[ ] 2.1.5  Create AuthResponse DTO (accessToken, refreshToken, user object)
+[ ] 2.1.6  Implement JwtTokenProvider (generate, validate, extract claims)
+[ ] 2.1.7  Implement JwtAuthFilter (extends OncePerRequestFilter)
+[ ] 2.1.8  Configure SecurityFilterChain (permit /api/auth/**, block others)
+[ ] 2.1.9  Implement AuthService with:
+           - register() method with BCrypt password hashing
+           - login() method with credential validation
+           - refreshToken() method
+[ ] 2.1.10 Create AuthController with endpoints:
+           POST /api/auth/register
+           POST /api/auth/login
+           POST /api/auth/refresh
+           POST /api/auth/logout
+[ ] 2.1.11 Write unit tests for AuthService
+[ ] 2.1.12 Test all auth endpoints with Postman/curl
+
+TASK 2.2 - Frontend Auth Implementation
+-----------------------------------------
+[ ] 2.2.1  Create authStore (Zustand) with user state, tokens, login/logout actions
+[ ] 2.2.2  Create axiosClient.ts with:
+           - Base URL from env
+           - Request interceptor (attach JWT from store)
+           - Response interceptor (handle 401, auto-refresh)
+[ ] 2.2.3  Create authApi.ts (register, login, refreshToken API calls)
+[ ] 2.2.4  Build LoginPage.tsx with:
+           - Email + Password form
+           - Form validation (react-hook-form + zod)
+           - Error handling
+           - Loading states
+           - Link to register
+[ ] 2.2.5  Build RegisterPage.tsx with:
+           - Full name, email, password, confirm password, phone, city fields
+           - Password strength indicator
+           - Terms acceptance checkbox
+[ ] 2.2.6  Build OnboardingPage.tsx (after first login):
+           - Location selection (search + GPS detect)
+           - Family setup intro (option to skip for now)
+[ ] 2.2.7  Create ProtectedRoute component (redirect to /login if not authed)
+[ ] 2.2.8  Create PublicRoute component (redirect to /dashboard if already authed)
+[ ] 2.2.9  Set up React Router with all routes
+[ ] 2.2.10 Build Navbar/Header component with:
+           - Logo + "SaansSaathi" branding
+           - Nav links (Dashboard, Family, Map, Indoor, Planner)
+           - User avatar + dropdown (profile, settings, logout)
+           - AQI badge for current location
+
+STEP 2 DELIVERABLES:
+- User can register, login, logout
+- JWT tokens stored securely (httpOnly or memory)
+- Protected routes working
+- Basic app shell with navigation
+
+================================================================================
+STEP 3: REAL-TIME AIR QUALITY MODULE
+Status: [ ] Not Started
+Estimated Time: 3-4 days
+Prerequisites: Step 2 complete
+================================================================================
+
+TASK 3.1 - AQI Data Integration (Backend)
+-------------------------------------------
+[ ] 3.1.1  Research OpenAQ API v3 - get API key from openaq.org
+[ ] 3.1.2  Create OpenAQIntegrationService with:
+           - fetchLocations(city, lat, lng) method
+           - fetchLatestMeasurements(locationId) method
+           - fetchMeasurementHistory(locationId, dateFrom, dateTo) method
+[ ] 3.1.3  Create WeatherIntegrationService using Open-Meteo API (no auth needed):
+           - fetchCurrentWeather(lat, lng) method
+           - fetchWeatherForecast(lat, lng) method
+[ ] 3.1.4  Create AqiCalculationService:
+           - calculateIndianAQI(pm25, pm10, no2, so2, co, o3) method
+           - getAqiCategory(aqiValue) method (returns Good/Satisfactory/Moderate/Poor/VeryPoor/Severe)
+           - getDominantPollutant(readings) method
+           - getHealthAdvisory(category, memberType) method
+[ ] 3.1.5  Create AqiReading entity and PollutantReading entity
+[ ] 3.1.6  Create MonitoringStation entity (City, lat, lng, stationName, provider)
+[ ] 3.1.7  Create AqiDataRepository and MonitoringStationRepository
+[ ] 3.1.8  Create scheduled job (AqiDataRefreshJob) to fetch data every 30 minutes
+[ ] 3.1.9  Create AirQualityController with endpoints:
+           GET /api/air-quality/current?lat=&lng= (or ?city=)
+           GET /api/air-quality/history?stationId=&period=24h|7d|30d
+           GET /api/air-quality/stations?lat=&lng=&radius=
+           GET /api/air-quality/nearby?lat=&lng=
+           GET /api/air-quality/pollutants?stationId=
+[ ] 3.1.10 Create City entity with CPCB station data seeded
+[ ] 3.1.11 Add caching layer (Spring Cache + Caffeine) for AQI data (TTL 15 min)
+[ ] 3.1.12 Handle data-unavailable scenario gracefully with appropriate error messages
+
+TASK 3.2 - AQI Dashboard (Frontend)
+--------------------------------------
+[ ] 3.2.1  Create AQI color utility (getAqiColor, getAqiCategory by value)
+[ ] 3.2.2  Create AqiHeroCard component:
+           - Large AQI number (animated, color-coded background)
+           - Category badge (Good/Satisfactory/etc.)
+           - Location name + station name
+           - Last updated timestamp with freshness indicator
+           - Dominant pollutant highlight
+[ ] 3.2.3  Create PollutantGrid component:
+           - Cards for PM2.5, PM10, NO2, SO2, CO, O3
+           - Each with value, unit, mini gauge/progress bar
+           - Color-coded by safe/unsafe threshold
+[ ] 3.2.4  Create HealthAdvisoryBanner component:
+           - Dynamic message based on AQI category
+           - Icon (mask, indoor, outdoor)
+           - Action buttons (View Family Plan, Indoor Tips)
+[ ] 3.2.5  Create AqiTrendChart component (using Recharts):
+           - Area chart showing 24h/7d/30d AQI history
+           - Toggle buttons for period selection
+           - Hover tooltips with detailed values
+           - Reference lines for AQI thresholds
+[ ] 3.2.6  Create PollutantBreakdownChart:
+           - Bar chart comparing individual pollutants vs safe limits
+           - Color-coded bars
+[ ] 3.2.7  Create LocationSearch component:
+           - Search input with debounce
+           - GPS location detect button
+           - Saved locations dropdown
+[ ] 3.2.8  Create WeatherWidget component:
+           - Temperature, humidity, wind speed/direction
+           - Weather icon
+           - "Weather context for pollution" note
+[ ] 3.2.9  Assemble DashboardPage.tsx with all above components
+[ ] 3.2.10 Add auto-refresh every 15 minutes with visual countdown
+[ ] 3.2.11 Add loading skeletons for all cards
+[ ] 3.2.12 Make dashboard fully responsive (mobile-first)
+
+STEP 3 DELIVERABLES:
+- Dashboard showing real AQI data from OpenAQ
+- Pollutant breakdown displayed
+- 24-hour trend chart working
+- Location search functional
+- Mobile responsive
+
+================================================================================
+STEP 4: FAMILY MANAGEMENT & PERSONALIZED PROTECTION
+Status: [ ] Not Started
+Estimated Time: 3-4 days
+Prerequisites: Step 3 complete
+================================================================================
+
+TASK 4.1 - Family Backend
+---------------------------
+[ ] 4.1.1  Create FamilyGroup entity (id, userId, familyName, createdAt)
+[ ] 4.1.2  Create FamilyMember entity:
+           name, ageGroup (CHILD/ADULT/SENIOR), dailyRoutine,
+           outdoorHoursPerDay, sensitiveCategory (NONE/CHILD/RESPIRATORY/CARDIAC),
+           workScheduleStart, workScheduleEnd, exercisePreference (OUTDOOR/INDOOR/NONE)
+[ ] 4.1.3  Create UserLocation entity (id, userId, locationName, lat, lng, isPrimary)
+[ ] 4.1.4  Create FamilyRepository, FamilyMemberRepository, UserLocationRepository
+[ ] 4.1.5  Create FamilyService with CRUD operations
+[ ] 4.1.6  Create RecommendationEngine (rule-based):
+           - generateMemberRecommendation(member, aqiReading) method
+           - Input: member profile + current AQI
+           - Output: list of specific recommendations
+           - Rules based on CPCB/NCDC health guidance
+           - Different rules for: children, seniors, respiratory patients, etc.
+[ ] 4.1.7  Create FamilyController:
+           GET  /api/family
+           POST /api/family
+           GET  /api/family/members
+           POST /api/family/members
+           PUT  /api/family/members/{id}
+           DELETE /api/family/members/{id}
+           GET  /api/family/recommendations (uses RecommendationEngine + current AQI)
+[ ] 4.1.8  Create UserLocationController:
+           GET  /api/locations
+           POST /api/locations
+           DELETE /api/locations/{id}
+           PUT  /api/locations/{id}/primary
+
+TASK 4.2 - Family Frontend
+----------------------------
+[ ] 4.2.1  Create FamilyPage.tsx (main family management page)
+[ ] 4.2.2  Create AddFamilyMemberModal with form:
+           - Name field
+           - Age group selector (Child / Adult / Senior)
+           - Sensitive category (None / Asthma/Respiratory / Heart Condition)
+           - Daily outdoor hours slider
+           - Work/school schedule time pickers
+           - Exercise preference radio buttons
+[ ] 4.2.3  Create FamilyMemberCard component:
+           - Avatar (auto-generated from name/age)
+           - Member details summary
+           - Current AQI risk badge for this member
+           - Quick recommendation preview
+           - Edit/Delete buttons
+[ ] 4.2.4  Create FamilyProtectionPanel component:
+           - Family overview (all members listed)
+           - Current risk level per member (color-coded)
+           - Personalized recommendation list per member
+           - "Today's Family Safety Summary" section
+[ ] 4.2.5  Create FamilyPage with tabs: Members | Protection Plan | History
+[ ] 4.2.6  Integrate RecommendationEngine output in FamilyProtectionPanel
+[ ] 4.2.7  Add empty state for first-time users (prompt to add members)
+
+STEP 4 DELIVERABLES:
+- User can add/edit/delete family members
+- Each member has personalized AQI-based recommendations
+- Family protection panel shows all members' risk levels
+- Recommendations update when AQI changes
+
+================================================================================
+STEP 5: INDOOR AIR QUALITY ASSISTANT
+Status: [ ] Not Started
+Estimated Time: 2-3 days
+Prerequisites: Step 4 complete
+================================================================================
+
+TASK 5.1 - Indoor Air Backend
+-------------------------------
+[ ] 5.1.1  Create IndoorAssessment entity:
+           userId, roomCount, hasAirPurifier, hasExhaustFan,
+           cookingFuel (LPG/BIOMASS/ELECTRIC), windowCount,
+           budget, hasChildren, hasSeniors, notes, createdAt
+[ ] 5.1.2  Create IndoorRecommendation entity (linked to assessment):
+           category, recommendation, priority, estimatedCost, source
+[ ] 5.1.3  Create IndoorAirService with:
+           - generateRecommendations(assessment) rule-based method
+           - getCleanAirRoomGuide() method
+           - getDIYAirPurifierGuide() method
+[ ] 5.1.4  Create IndoorController:
+           POST /api/indoor/assessment
+           GET  /api/indoor/assessment (get latest)
+           GET  /api/indoor/recommendations
+           GET  /api/indoor/clean-air-room
+           GET  /api/indoor/diy-purifier-guide
+
+TASK 5.2 - Indoor Air Frontend
+--------------------------------
+[ ] 5.2.1  Create IndoorPage.tsx with tabs:
+           Assessment | Recommendations | Clean Air Room | DIY Guide
+[ ] 5.2.2  Create HomeAssessmentForm:
+           - Step-by-step wizard (3 steps)
+           - Step 1: Home details (rooms, windows, floor)
+           - Step 2: Appliances (purifier, exhaust, chimney)
+           - Step 3: Habits (cooking fuel, incense, smoking, budget)
+           - Progress bar between steps
+[ ] 5.2.3  Create IndoorRecommendationCard:
+           - Category icon (cooking/ventilation/filtration/cleaning)
+           - Recommendation text
+           - Priority badge (High/Medium/Low)
+           - Estimated cost range
+           - Source citation
+[ ] 5.2.4  Create CleanAirRoomGuide component:
+           - Step-by-step room setup guide
+           - Room selection tips
+           - Checklist format (interactive checkboxes)
+           - Air purifier sizing guide (by room area)
+[ ] 5.2.5  Create DIYAirPurifierGuide:
+           - Materials needed list
+           - Step-by-step instructions
+           - Safety precautions callout
+           - EPA source citation
+           - Effectiveness note (temporary solution only)
+[ ] 5.2.6  Add "Outdoor vs Indoor" comparison widget on IndoorPage
+
+STEP 5 DELIVERABLES:
+- Assessment wizard complete
+- Personalized indoor recommendations generated
+- Clean Air Room guide interactive
+- DIY purifier guide with safety disclaimers
+
+================================================================================
+STEP 6: AI INTEGRATION (GEMINI API)
+Status: [ ] Not Started
+Estimated Time: 3-4 days
+Prerequisites: Steps 3-5 complete
+================================================================================
+
+TASK 6.1 - Gemini Chatbot Backend
+-----------------------------------
+[ ] 6.1.1  Set up Gemini API key (from Google AI Studio)
+           - Store ONLY in backend environment variable
+           - Never expose in frontend code
+[ ] 6.1.2  Create GeminiService with:
+           - buildSystemPrompt() method (includes AQI context + family profile)
+           - chat(sessionId, userMessage, context) method
+           - generateIndoorPlan(assessment) method
+           - generateFamilyRecommendations(familyMembers, aqiReading) method
+           - explainAqiTerm(term) method
+[ ] 6.1.3  Create ChatSession entity (id, userId, createdAt, title)
+[ ] 6.1.4  Create ChatMessage entity (id, sessionId, role, content, timestamp)
+[ ] 6.1.5  Create AIController:
+           POST /api/ai/chat (send message, get response)
+           GET  /api/ai/chat/sessions (list user's sessions)
+           GET  /api/ai/chat/sessions/{id}/messages
+           POST /api/ai/indoor-plan
+           POST /api/ai/family-recommendations
+           GET  /api/ai/explain?term=pm25
+[ ] 6.1.6  Add safety guardrails in GeminiService:
+           - System prompt: "Do not diagnose medical conditions"
+           - System prompt: "Do not recommend changing prescribed medications"
+           - System prompt: "Never invent AQI measurements"
+           - Validate AI response before sending to client
+[ ] 6.1.7  Add rate limiting for AI endpoints (10 requests/minute per user)
+[ ] 6.1.8  Store chat history in DB for context continuity
+
+TASK 6.2 - Chatbot Frontend
+-----------------------------
+[ ] 6.2.1  Create ChatPage.tsx (full-page chat interface)
+[ ] 6.2.2  Create ChatBubble component (user/assistant styling)
+[ ] 6.2.3  Create ChatInput component (textarea + send button)
+[ ] 6.2.4  Create SuggestedQuestions component (quick-tap prompts):
+           "Is it safe to go running today?"
+           "Should my child go to school?"
+           "How can I reduce indoor pollution?"
+           "What does PM2.5 mean?"
+           "Best time to open windows today?"
+[ ] 6.2.5  Create ChatSidebar (session list, new chat button)
+[ ] 6.2.6  Implement streaming response display (or typing indicator)
+[ ] 6.2.7  Create floating ChatButton (FAB) on all pages to open chat
+[ ] 6.2.8  Add AI disclaimer banner: "For awareness only. Not medical advice."
+[ ] 6.2.9  Build AIRecommendationCard for dashboard (shows AI-generated daily tip)
+
+STEP 6 DELIVERABLES:
+- Chatbot answers AQI questions in context
+- AI indoor plan generation working
+- Family AI recommendations available
+- Safety guardrails verified
+
+================================================================================
+STEP 7: DAILY ROUTINE PLANNER
+Status: [ ] Not Started
+Estimated Time: 2-3 days
+Prerequisites: Steps 4-6 complete
+================================================================================
+
+TASK 7.1 - Planner Backend
+----------------------------
+[ ] 7.1.1  Create DailyRoutine entity (id, userId, date, generatedAt, isCustom)
+[ ] 7.1.2  Create RoutineActivity entity:
+           routineId, memberId, startTime, endTime, activityType,
+           originalActivity, recommendedActivity, reason, priority
+[ ] 7.1.3  Create ActivityLog entity (track completed activities)
+[ ] 7.1.4  Create RoutinePlannerService:
+           - generateDailyRoutine(userId, date) method
+           - Logic: fetch AQI forecast + family schedules -> generate recommendations
+           - adjustRoutineForAqi(routine, currentAqi) method
+[ ] 7.1.5  Create PlannerController:
+           GET  /api/routines (get today's routine)
+           POST /api/routines/generate (force regenerate)
+           PUT  /api/routines/{id} (update custom activity)
+           POST /api/routines/{id}/activities/{actId}/complete
+
+TASK 7.2 - Planner Frontend
+-----------------------------
+[ ] 7.2.1  Create PlannerPage.tsx
+[ ] 7.2.2  Create DailyScheduleTimeline component:
+           - Vertical timeline layout
+           - Time slots from 5am to 11pm
+           - Activity cards with icons
+           - Color-coded by risk (outdoor/indoor/caution)
+[ ] 7.2.3  Create ActivityCard component:
+           - Activity icon + name
+           - Original plan vs AQI-adjusted recommendation
+           - Reason for change
+           - "Mark as Done" checkbox
+[ ] 7.2.4  Create PlannerHeader with date, AQI summary for the day
+[ ] 7.2.5  Create CustomActivityModal (add/edit activities)
+[ ] 7.2.6  Create WeeklyOverview component (7-day summary)
+[ ] 7.2.7  Show "Best Times" summary (best outdoor window based on forecast)
+
+STEP 7 DELIVERABLES:
+- Daily schedule auto-generated for each family member
+- Activities adjusted based on current AQI
+- Users can customize and mark activities complete
+
+================================================================================
+STEP 8: AIR QUALITY MAP
+Status: [ ] Not Started
+Estimated Time: 2-3 days
+Prerequisites: Step 3 complete
+================================================================================
+
+TASK 8.1 - Map Backend
+------------------------
+[ ] 8.1.1  Create MapDataController:
+           GET /api/map/stations?bounds={sw_lat,sw_lng,ne_lat,ne_lng}
+           GET /api/map/stations/{id}/popup (AQI popup data)
+[ ] 8.1.2  Return station lat/lng + current AQI + category + pollutants
+
+TASK 8.2 - Map Frontend (Leaflet + OpenStreetMap)
+---------------------------------------------------
+[ ] 8.2.1  Install leaflet + react-leaflet
+[ ] 8.2.2  Create AirQualityMapPage.tsx
+[ ] 8.2.3  Create MapContainer with OpenStreetMap tiles
+[ ] 8.2.4  Create AqiMarker component (custom colored markers):
+           - Circle marker with AQI value
+           - Color matches AQI category
+           - Click to open popup
+[ ] 8.2.5  Create StationPopup component:
+           - Station name, AQI, category
+           - PM2.5, PM10 values
+           - Last updated time
+           - "Set as my location" button
+[ ] 8.2.6  Add MapLegend component (color-coded AQI scale)
+[ ] 8.2.7  Add LayerControl (toggle marker types)
+[ ] 8.2.8  Add "My Location" button (GPS pin on map)
+[ ] 8.2.9  Add disclaimer: "Station observations only. Not a continuous heatmap."
+[ ] 8.2.10 Make map mobile-friendly with touch support
+
+STEP 8 DELIVERABLES:
+- Interactive map shows all OpenAQ stations
+- Clicking station shows AQI popup
+- Color-coded markers matching Indian AQI categories
+- Mobile-friendly map
+
+================================================================================
+STEP 9: NOTIFICATIONS & ALERTS SYSTEM
+Status: [ ] Not Started
+Estimated Time: 2 days
+Prerequisites: Step 3 complete
+================================================================================
+
+TASK 9.1 - Notifications Backend
+----------------------------------
+[ ] 9.1.1  Create Notification entity (userId, type, title, message, isRead, createdAt)
+[ ] 9.1.2  Create NotificationPreference entity (userId, alertTypes, emailEnabled, pushEnabled)
+[ ] 9.1.3  Create NotificationService:
+           - createAqiAlert(userId, currentAqi, threshold) method
+           - createFamilyAlert(userId, memberName, risk) method
+           - createMorningBriefing(userId) method
+[ ] 9.1.4  Create AqiAlertJob (Spring Scheduler):
+           - Run every 30 min
+           - If AQI crosses threshold for user's location -> create notification
+           - Avoid duplicate alerts within 2 hours
+[ ] 9.1.5  Create NotificationController:
+           GET  /api/notifications (paginated)
+           PUT  /api/notifications/{id}/read
+           PUT  /api/notifications/read-all
+           GET  /api/notifications/preferences
+           PUT  /api/notifications/preferences
+[ ] 9.1.6  Implement email notifications using JavaMailSender (optional)
+
+TASK 9.2 - Notifications Frontend
+-----------------------------------
+[ ] 9.2.1  Create NotificationBell component in Navbar (with unread count badge)
+[ ] 9.2.2  Create NotificationDropdown (last 5 notifications)
+[ ] 9.2.3  Create NotificationsPage (full list, paginated)
+[ ] 9.2.4  Create NotificationCard component (icon + title + message + time + read status)
+[ ] 9.2.5  Create NotificationPreferencesPage (checkboxes for alert types)
+[ ] 9.2.6  Implement browser Push Notifications (web push API)
+[ ] 9.2.7  Auto-mark notifications as read when user opens them
+
+STEP 9 DELIVERABLES:
+- In-app notification bell with unread count
+- AQI threshold alerts sent automatically
+- User can configure which alerts to receive
+
+================================================================================
+STEP 10: CHALLENGES & GAMIFICATION
+Status: [ ] Not Started
+Estimated Time: 2 days
+Prerequisites: Steps 4-7 complete
+================================================================================
+
+TASK 10.1 - Challenges Backend
+--------------------------------
+[ ] 10.1.1 Create CleanAirChallenge entity (title, description, duration, points)
+[ ] 10.1.2 Create ChallengeParticipant entity (userId, challengeId, startDate, progress, completed)
+[ ] 10.1.3 Seed 10 default challenges (use public transport, avoid idling, etc.)
+[ ] 10.1.4 Create ChallengeService with:
+            - joinChallenge(userId, challengeId)
+            - updateProgress(userId, challengeId, dayCompleted)
+            - getUserBadges(userId)
+[ ] 10.1.5 Create ChallengesController:
+            GET  /api/challenges (all available)
+            POST /api/challenges/{id}/join
+            PUT  /api/challenges/{id}/progress
+            GET  /api/challenges/my (user's active challenges)
+            GET  /api/challenges/badges (user's earned badges)
+
+TASK 10.2 - Challenges Frontend
+---------------------------------
+[ ] 10.2.1 Create ChallengesPage.tsx with tabs: Active | Available | Completed
+[ ] 10.2.2 Create ChallengeCard component:
+            - Challenge title + description
+            - Duration + difficulty
+            - Progress bar (for active ones)
+            - Join/Leave button
+[ ] 10.2.3 Create BadgesSection (earned achievement badges)
+[ ] 10.2.4 Create WeeklyProgressChart (Recharts bar chart)
+[ ] 10.2.5 Create 7-Day Challenge Calendar UI
+
+STEP 10 DELIVERABLES:
+- Users can join clean-air challenges
+- Progress tracking with visual indicators
+- Badge system for completed challenges
+
+================================================================================
+STEP 11: LANDING PAGE & PUBLIC PAGES
+Status: [ ] Not Started
+Estimated Time: 2 days
+Prerequisites: Steps 2-3 complete
+================================================================================
+
+TASK 11.1 - Landing Page Frontend
+-----------------------------------
+[ ] 11.1.1 Create LandingPage.tsx with sections:
+           - Hero: Big headline, tagline, CTA buttons, animated AQI preview
+           - Live Preview: Real AQI widget (no login required)
+           - How It Works: 3-step explainer (Monitor → Protect → Improve)
+           - Features Grid: 6 key feature cards with icons
+           - Family Protection: Screenshot/mockup section
+           - Indoor Air: Screenshot/mockup section
+           - AI Assistant: Chat demo GIF or screenshot
+           - Challenges: Preview section
+           - FAQ: Accordion with 8 common questions
+           - CTA Banner: "Start protecting your family today"
+           - Footer: Links, tech stack credits, sources
+
+[ ] 11.1.2 Implement AQI color background animation based on live AQI
+[ ] 11.1.3 Add smooth scroll and scroll-reveal animations
+[ ] 11.1.4 Make landing page fully SEO-ready (meta tags, og tags)
+[ ] 11.1.5 Create 404 NotFoundPage
+[ ] 11.1.6 Create PrivacyPolicyPage
+[ ] 11.1.7 Create TermsOfServicePage
+[ ] 11.1.8 Create AboutPage (project info, tech stack, team)
+
+STEP 11 DELIVERABLES:
+- Beautiful landing page that converts visitors
+- Public AQI preview without login
+- FAQ section addresses common questions
+- SEO meta tags set
+
+================================================================================
+STEP 12: ADMIN DASHBOARD
+Status: [ ] Not Started
+Estimated Time: 2-3 days
+Prerequisites: Steps 2-10 complete
+================================================================================
+
+TASK 12.1 - Admin Backend
+---------------------------
+[ ] 12.1.1 Add ADMIN role to Spring Security
+[ ] 12.1.2 Create AdminController (secured with @PreAuthorize("hasRole('ADMIN')"))
+           GET  /api/admin/users (paginated user list)
+           GET  /api/admin/stats (total users, active, cities covered)
+           GET  /api/admin/api-health (OpenAQ, Gemini API status)
+           POST /api/admin/notifications/broadcast (send to all users)
+[ ] 12.1.3 Create API health check service (ping external APIs)
+
+TASK 12.2 - Admin Frontend
+----------------------------
+[ ] 12.2.1 Create AdminLayout (separate from main app layout)
+[ ] 12.2.2 Create AdminDashboard with stat cards:
+           - Total users, today's registrations
+           - Cities monitored
+           - API health status indicators
+           - System errors log
+[ ] 12.2.3 Create UserManagementTable (search, filter, view, disable users)
+[ ] 12.2.4 Create ApiHealthMonitor component (green/red status pills)
+
+STEP 12 DELIVERABLES:
+- Admin can view platform statistics
+- User management working
+- API health monitoring active
+
+================================================================================
+STEP 13: TESTING & QUALITY ASSURANCE
+Status: [ ] Not Started
+Estimated Time: 3 days
+Prerequisites: Steps 1-12 complete
+================================================================================
+
+TASK 13.1 - Backend Testing
+-----------------------------
+[ ] 13.1.1 Write unit tests for AuthService
+[ ] 13.1.2 Write unit tests for AqiCalculationService
+[ ] 13.1.3 Write unit tests for RecommendationEngine
+[ ] 13.1.4 Write unit tests for GeminiService
+[ ] 13.1.5 Write integration tests for AuthController
+[ ] 13.1.6 Write integration tests for AirQualityController
+[ ] 13.1.7 Write integration tests for FamilyController
+[ ] 13.1.8 Achieve minimum 70% code coverage
+[ ] 13.1.9 Run all tests: mvn test
+[ ] 13.1.10 Fix all failing tests
+
+TASK 13.2 - Frontend Testing
+------------------------------
+[ ] 13.2.1 Install Vitest + React Testing Library
+[ ] 13.2.2 Write tests for AqiHeroCard component
+[ ] 13.2.3 Write tests for auth flow (login/register forms)
+[ ] 13.2.4 Write tests for FamilyMemberCard component
+[ ] 13.2.5 Test responsive breakpoints on all major pages
+
+TASK 13.3 - Manual QA Checklist
+---------------------------------
+[ ] 13.3.1 Test all API endpoints with Postman collection
+[ ] 13.3.2 Test all frontend pages on Chrome, Firefox, Safari
+[ ] 13.3.3 Test mobile responsiveness on 375px, 768px, 1280px viewports
+[ ] 13.3.4 Test AQI unavailable scenario (graceful error messages)
+[ ] 13.3.5 Test expired JWT token handling (auto-refresh)
+[ ] 13.3.6 Test chat with offensive/medical questions (guardrails)
+[ ] 13.3.7 Test map rendering on mobile
+[ ] 13.3.8 Performance test: Lighthouse score > 80
+
+STEP 13 DELIVERABLES:
+- All unit tests passing
+- Integration tests passing
+- Manual QA sign-off on all major flows
+- Lighthouse performance score >80
+
+================================================================================
+STEP 14: DEPLOYMENT & CI/CD
+Status: [ ] Not Started
+Estimated Time: 2-3 days
+Prerequisites: Step 13 complete
+================================================================================
+
+TASK 14.1 - Database Deployment (PlanetScale / Railway / Render MySQL)
+------------------------------------------------------------------------
+[ ] 14.1.1 Choose managed MySQL provider (Railway recommended for free tier)
+[ ] 14.1.2 Create production database: saanssaathi_prod
+[ ] 14.1.3 Run Flyway migrations on production DB
+[ ] 14.1.4 Seed production data (cities, pollutants, default challenges)
+[ ] 14.1.5 Note down connection string (keep SECRET - never commit to git)
+
+TASK 14.2 - Backend Deployment (Render)
+-----------------------------------------
+[ ] 14.2.1 Create Dockerfile for Spring Boot app:
+           FROM eclipse-temurin:21-jre
+           COPY target/*.jar app.jar
+           EXPOSE 8080
+           ENTRYPOINT ["java","-jar","/app.jar"]
+[ ] 14.2.2 Add Render-specific application-prod.yml
+[ ] 14.2.3 Connect GitHub repo to Render Web Service
+[ ] 14.2.4 Set environment variables on Render:
+           SPRING_PROFILES_ACTIVE=prod
+           DB_URL, DB_USERNAME, DB_PASSWORD
+           JWT_SECRET
+           OPENAQ_API_KEY
+           GEMINI_API_KEY
+           FRONTEND_URL (for CORS)
+[ ] 14.2.5 Set build command: mvn clean package -DskipTests
+[ ] 14.2.6 Set start command: java -jar target/*.jar
+[ ] 14.2.7 Verify backend health endpoint: GET /api/health
+[ ] 14.2.8 Test all API endpoints against production backend
+
+TASK 14.3 - Frontend Deployment (Vercel)
+------------------------------------------
+[ ] 14.3.1 Create vercel.json for SPA routing:
+           {"rewrites": [{"source": "/(.*)", "destination": "/index.html"}]}
+[ ] 14.3.2 Connect GitHub repo frontend/ directory to Vercel project
+[ ] 14.3.3 Set environment variables on Vercel:
+           VITE_API_BASE_URL=https://your-backend.render.com/api
+[ ] 14.3.4 Set build command: npm run build
+[ ] 14.3.5 Set output directory: dist
+[ ] 14.3.6 Deploy and verify frontend loads at Vercel URL
+[ ] 14.3.7 Test all pages load correctly on production
+[ ] 14.3.8 Test API calls work from frontend to backend (CORS check)
+
+TASK 14.4 - CI/CD Pipeline (GitHub Actions)
+---------------------------------------------
+[ ] 14.4.1 Create .github/workflows/backend-ci.yml:
+           - Trigger: push to main, PR to main
+           - Steps: checkout, Java 21, mvn test, mvn package
+[ ] 14.4.2 Create .github/workflows/frontend-ci.yml:
+           - Trigger: push to main, PR to main
+           - Steps: checkout, node 20, npm ci, npm run build, npm test
+[ ] 14.4.3 Add status badges to README.md
+[ ] 14.4.4 Verify CI runs pass on push
+
+TASK 14.5 - Post-Deployment Verification
+------------------------------------------
+[ ] 14.5.1 Run full smoke test on production URLs
+[ ] 14.5.2 Test registration + login flow on prod
+[ ] 14.5.3 Test AQI data loads on prod dashboard
+[ ] 14.5.4 Test AI chatbot on prod
+[ ] 14.5.5 Test map on prod
+[ ] 14.5.6 Set up uptime monitoring (UptimeRobot - free)
+[ ] 14.5.7 Document production URLs in README.md
+
+STEP 14 DELIVERABLES:
+- Backend live on Render
+- Frontend live on Vercel
+- Production database running
+- GitHub Actions CI/CD passing
+- Uptime monitoring active
+
+================================================================================
+STEP 15: DOCUMENTATION & FINAL POLISH
+Status: [ ] Not Started
+Estimated Time: 1-2 days
+Prerequisites: Step 14 complete
+================================================================================
+
+TASK 15.1 - Documentation
+---------------------------
+[ ] 15.1.1 Update README.md with:
+           - Live demo URL
+           - Setup instructions (local dev)
+           - Environment variables guide
+           - Architecture overview diagram
+           - API documentation link
+           - Team members
+[ ] 15.1.2 Export Postman collection (docs/postman-collection.json)
+[ ] 15.1.3 Create docs/ARCHITECTURE.md with system diagram
+[ ] 15.1.4 Create docs/DATABASE.md with ER diagram + table descriptions
+[ ] 15.1.5 Create docs/API.md with all endpoint documentation
+[ ] 15.1.6 Create docs/DESIGN.md referencing sample images + design decisions
+
+TASK 15.2 - Final Polish
+--------------------------
+[ ] 15.2.1 Add favicon (saans saathi leaf+air icon)
+[ ] 15.2.2 Add app manifest for PWA support
+[ ] 15.2.3 Check all copyright/attribution notices for open source libraries
+[ ] 15.2.4 Add data source attribution: OpenAQ, Open-Meteo, OpenStreetMap
+[ ] 15.2.5 Review all medical/health disclaimers are present
+[ ] 15.2.6 Final Lighthouse audit (Performance, Accessibility, SEO)
+[ ] 15.2.7 Fix any accessibility issues (ARIA labels, color contrast)
+[ ] 15.2.8 Cross-browser final check
+
+STEP 15 DELIVERABLES:
+- Complete documentation
+- Production app polished
+- All attributions and disclaimers present
+- Project ready for submission/presentation
+
+================================================================================
+PRIORITY ORDER (DO IN THIS SEQUENCE):
+================================================================================
+
+PHASE 1 (Core - Must Do):   Steps 1 → 2 → 3 → 4 → 5
+PHASE 2 (AI & Planning):    Steps 6 → 7 → 8
+PHASE 3 (Full Features):    Steps 9 → 10 → 11 → 12
+PHASE 4 (Ship It):          Steps 13 → 14 → 15
+
+================================================================================
+TOTAL ESTIMATED DEVELOPMENT TIME: 6-8 weeks (solo developer)
+                                   3-4 weeks (2-person team)
+================================================================================
+
+START DATE: _______________
+TARGET COMPLETION: _______________
+DEPLOYED URL (Frontend): _______________
+DEPLOYED URL (Backend):  _______________
+
+================================================================================

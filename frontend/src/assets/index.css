@@ -1,0 +1,151 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 142 30% 97%;
+    --foreground: 220 30% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 30% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 30% 10%;
+    --primary: 155 42% 30%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 190 48% 51%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 142 15% 94%;
+    --muted-foreground: 220 15% 45%;
+    --accent: 142 20% 92%;
+    --accent-foreground: 155 42% 25%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 142 15% 88%;
+    --input: 142 15% 88%;
+    --ring: 155 42% 30%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 220 30% 7%;
+    --foreground: 210 20% 90%;
+    --card: 220 25% 11%;
+    --card-foreground: 210 20% 90%;
+    --popover: 220 25% 11%;
+    --popover-foreground: 210 20% 90%;
+    --primary: 155 42% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 190 48% 45%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 220 20% 18%;
+    --muted-foreground: 210 15% 55%;
+    --accent: 220 20% 18%;
+    --accent-foreground: 155 42% 60%;
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 20% 20%;
+    --input: 220 20% 20%;
+    --ring: 155 42% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    min-height: 100vh;
+  }
+
+  /* Typography */
+  h1 { @apply text-3xl font-bold tracking-tight; }
+  h2 { @apply text-2xl font-semibold tracking-tight; }
+  h3 { @apply text-xl font-semibold; }
+  h4 { @apply text-lg font-medium; }
+
+  /* Smooth scroll */
+  html { scroll-behavior: smooth; }
+
+  /* Focus ring */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2;
+  }
+}
+
+@layer components {
+  /* AQI Category Badge */
+  .aqi-badge-good        { @apply bg-aqi-good text-white; }
+  .aqi-badge-satisfactory { @apply bg-aqi-satisfactory text-white; }
+  .aqi-badge-moderate    { @apply bg-aqi-moderate text-white; }
+  .aqi-badge-poor        { @apply bg-aqi-poor text-white; }
+  .aqi-badge-verypoor    { @apply bg-aqi-verypoor text-white; }
+  .aqi-badge-severe      { @apply bg-aqi-severe text-white; }
+
+  /* AQI Card backgrounds */
+  .aqi-card-good        { @apply bg-gradient-to-br from-aqi-good/10 to-aqi-good/5 border-aqi-good/20; }
+  .aqi-card-satisfactory { @apply bg-gradient-to-br from-aqi-satisfactory/10 to-aqi-satisfactory/5 border-aqi-satisfactory/20; }
+  .aqi-card-moderate    { @apply bg-gradient-to-br from-aqi-moderate/10 to-aqi-moderate/5 border-aqi-moderate/20; }
+  .aqi-card-poor        { @apply bg-gradient-to-br from-aqi-poor/10 to-aqi-poor/5 border-aqi-poor/20; }
+  .aqi-card-verypoor    { @apply bg-gradient-to-br from-aqi-verypoor/10 to-aqi-verypoor/5 border-aqi-verypoor/20; }
+  .aqi-card-severe      { @apply bg-gradient-to-br from-aqi-severe/10 to-aqi-severe/5 border-aqi-severe/20; }
+
+  /* Card hover effect */
+  .card-hover {
+    @apply transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 cursor-pointer;
+  }
+
+  /* Page container */
+  .page-container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6;
+  }
+
+  /* Section header */
+  .section-header {
+    @apply flex items-center justify-between mb-6;
+  }
+
+  /* Live indicator dot */
+  .live-dot {
+    @apply inline-block w-2 h-2 rounded-full bg-green-500 animate-aqi-pulse mr-1.5;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { @apply bg-muted rounded-full; }
+  ::-webkit-scrollbar-thumb { @apply bg-muted-foreground/30 rounded-full hover:bg-muted-foreground/50; }
+}
+
+/* Leaflet map overrides */
+.leaflet-container {
+  font-family: 'Inter', sans-serif;
+  border-radius: var(--radius);
+}
+
+/* AQI Marker Styles */
+.aqi-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 13px;
+  color: white;
+  border: 2px solid rgba(255,255,255,0.4);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  min-width: 48px;
+  height: 32px;
+  padding: 0 8px;
+}
+
+.aqi-marker:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  z-index: 1000 !important;
+}

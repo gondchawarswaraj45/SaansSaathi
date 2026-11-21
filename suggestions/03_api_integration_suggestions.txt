@@ -1,0 +1,386 @@
+================================================================================
+SUGGESTION FILE 3: API INTEGRATION & DATA HANDLING RECOMMENDATIONS
+SaansSaathi - Detailed API Usage Guide
+================================================================================
+
+================================================================================
+SECTION A: OPENAQ API - DETAILED INTEGRATION GUIDE
+================================================================================
+
+API DOCUMENTATION: https://docs.openaq.org
+API BASE URL: https://api.openaq.org/v3
+AUTHENTICATION: X-API-Key header (get key from openaq.org/register)
+
+--- STEP 1: FIND MONITORING STATIONS NEAR A CITY ---
+
+REQUEST:
+  GET https://api.openaq.org/v3/locations
+  Headers:
+    X-API-Key: YOUR_API_KEY
+    Accept: application/json
+  Query params:
+    coordinates=18.5204,73.8567   (latitude,longitude for Pune)
+    radius=25000                   (25km radius in meters)
+    limit=20                       (max 20 results)
+    order_by=distance              (closest first)
+
+RESPONSE (simplified):
+  {
+    "results": [
+      {
+        "id": 12345,
+        "name": "Alandi Road Pune MPCB",
+        "locality": "Pune",
+        "country": { "code": "IN" },
+        "coordinates": { "latitude": 18.60, "longitude": 73.84 },
+        "sensors": [
+          { "id": 67890, "name": "pm25", "parameter": { "name": "pm25", "units": "µg/m³" } },
+          { "id": 67891, "name": "pm10", "parameter": { "name": "pm10", "units": "µg/m³" } },
+          { "id": 67892, "name": "no2",  "parameter": { "name": "no2",  "units": "µg/m³" } }
+        ]
+      }
+    ]
+  }
+
+JAVA IMPLEMENTATION:
+
+  @Service
+  public class OpenAQIntegrationService {
+    
+    @Value("${openaq.api.key}")
+    private String apiKey;
+    
+    private final RestTemplate restTemplate;
+    private final String BASE_URL = "https://api.openaq.org/v3";
+    
+    public List<MonitoringStationDTO> findNearbyStations(double lat, double lng) {
+      HttpHeaders headers = new HttpHeaders();
+      headers.set("X-API-Key", apiKey);
+      
+      String url = BASE_URL + "/locations"
+        + "?coordinates=" + lat + "," + lng
+        + "&radius=25000&limit=20&order_by=distance";
+      
+      ResponseEntity<OpenAQLocationsResponse> response = 
+        restTemplate.exchange(url, HttpMethod.GET,
+          new HttpEntity<>(headers), OpenAQLocationsResponse.class);
+      
+      return mapToMonitoringStations(response.getBody().getResults());
+    }
+  }
+
+--- STEP 2: GET LATEST MEASUREMENTS FOR A SENSOR ---
+
+REQUEST:
+  GET https://api.openaq.org/v3/sensors/{sensorId}/measurements/latest
+  Headers: X-API-Key: YOUR_API_KEY
+
+RESPONSE:
+  {
+    "results": [
+      {
+        "value": 47.5,
+        "parameter": { "name": "pm25", "units": "µg/m³" },
+        "period": {
+          "datetimeFrom": { "utc": "2026-11-21T08:00:00Z", "local": "2026-11-21T13:30:00+05:30" },
+          "datetimeTo":   { "utc": "2026-11-21T08:30:00Z", "local": "2026-11-21T14:00:00+05:30" }
+        }
+      }
+    ]
+  }
+
+--- STEP 3: GET HISTORICAL HOURLY DATA ---
+
+REQUEST:
+  GET https://api.openaq.org/v3/sensors/{sensorId}/hours
+  Headers: X-API-Key: YOUR_API_KEY
+  Query params:
+    date_from=2026-11-20T00:00:00Z
+    date_to=2026-11-21T00:00:00Z
+    limit=24
+
+--- IMPORTANT DATA QUALITY RULES ---
+
+ALWAYS CHECK AND DISPLAY:
+  1. Data timestamp - show how old the reading is
+     - < 1 hour: "LIVE" badge (green)
+     - 1-3 hours: "Updated 2h ago" (yellow)
+     - > 3 hours: "Data may be stale" (orange warning)
+     - > 24 hours: Don't use this data at all
+  
+  2. Data source attribution:
+     "Data from OpenAQ / [Station Provider Name]"
+  
+  3. Missing data handling:
+     If OpenAQ returns no data for a city:
+     → Show: "Air quality data is not available for [City] from our data sources.
+              Please check the CPCB National AQI Dashboard at app.cpcbccr.com"
+     → Never show 0 or N/A as an AQI value
+
+================================================================================
+SECTION B: INDIAN AQI CALCULATION ALGORITHM
+================================================================================
+
+CPCB NATIONAL AQI USES THIS SUB-INDEX CALCULATION:
+
+For each pollutant, calculate a sub-index (Ip):
+  Ip = [(IHi - ILo) / (BPHi - BPLo)] × (Cp - BPLo) + ILo
+
+Where:
+  Cp  = Measured concentration
+  BPHi = Concentration breakpoint >= Cp
+  BPLo = Concentration breakpoint <= Cp  
+  IHi  = Index breakpoint >= Cp
+  ILo  = Index breakpoint <= Cp
+
+Final AQI = Max(Ip values for all pollutants)
+
+PM2.5 BREAKPOINTS (24-hour average, µg/m³):
+  Concentration | AQI Range
+  0–30          | 0–50     (Good)
+  31–60         | 51–100   (Satisfactory)
+  61–90         | 101–200  (Moderate)
+  91–120        | 201–300  (Poor)
+  121–250       | 301–400  (Very Poor)
+  >250          | 401–500  (Severe)
+
+PM10 BREAKPOINTS (24-hour average, µg/m³):
+  0–50          | 0–50
+  51–100        | 51–100
+  101–250       | 101–200
+  251–350       | 201–300
+  351–430       | 301–400
+  >430          | 401–500
+
+NO2 BREAKPOINTS (annual average, µg/m³):
+  0–40          | 0–50
+  41–80         | 51–100
+  81–180        | 101–200
+  181–280       | 201–300
+  281–400       | 301–400
+  >400          | 401–500
+
+NOTE: OpenAQ measures hourly, CPCB AQI uses 24-hour average for PM2.5/PM10.
+When calculating AQI from OpenAQ data, use rolling 24-hour average if
+historical data is available, or use current hourly reading with disclaimer:
+"AQI shown is based on current hourly reading, not 24-hour average."
+
+JAVA IMPLEMENTATION:
+
+  @Service
+  public class AqiCalculationService {
+    
+    public int calculatePM25SubIndex(double concentration) {
+      if (concentration <= 30) {
+        return (int) ((50.0 / 30.0) * concentration);
+      } else if (concentration <= 60) {
+        return (int) (50 + ((50.0 / 30.0) * (concentration - 30)));
+      } else if (concentration <= 90) {
+        return (int) (100 + ((100.0 / 30.0) * (concentration - 60)));
+      } else if (concentration <= 120) {
+        return (int) (200 + ((100.0 / 30.0) * (concentration - 90)));
+      } else if (concentration <= 250) {
+        return (int) (300 + ((100.0 / 130.0) * (concentration - 120)));
+      } else {
+        return Math.min(500, (int) (400 + ((100.0 / 130.0) * (concentration - 250))));
+      }
+    }
+    
+    public AqiCategory getCategory(int aqi) {
+      if (aqi <= 50)  return AqiCategory.GOOD;
+      if (aqi <= 100) return AqiCategory.SATISFACTORY;
+      if (aqi <= 200) return AqiCategory.MODERATE;
+      if (aqi <= 300) return AqiCategory.POOR;
+      if (aqi <= 400) return AqiCategory.VERY_POOR;
+      return AqiCategory.SEVERE;
+    }
+    
+    public String getDominantPollutant(Map<String, Integer> subIndices) {
+      return subIndices.entrySet().stream()
+        .max(Map.Entry.comparingByValue())
+        .map(Map.Entry::getKey)
+        .orElse("UNKNOWN");
+    }
+  }
+
+================================================================================
+SECTION C: GEMINI API - PROMPT ENGINEERING GUIDE
+================================================================================
+
+SYSTEM PROMPT TEMPLATE (set once per conversation):
+
+"""
+You are SaansSaathi, a helpful urban air quality assistant for Indian families.
+
+Your role:
+- Help families understand air quality and make safer daily decisions
+- Provide personalized recommendations based on family member profiles
+- Suggest indoor air improvement strategies using affordable methods
+
+Current context:
+- Location: {cityName}, {stateName}
+- Current AQI: {aqiValue} ({aqiCategory})
+- Dominant pollutant: {dominantPollutant}
+- Weather: {temperature}°C, {humidity}% humidity, Wind {windSpeed} km/h {windDirection}
+- Time: {currentTime} IST
+- Season: {season}
+
+Family members:
+{familyMembersJson}
+
+STRICT RULES you must always follow:
+1. NEVER diagnose medical conditions or symptoms
+2. NEVER recommend changing or stopping prescribed medications
+3. NEVER invent or estimate AQI values not provided to you
+4. NEVER recommend keeping windows closed indefinitely (ventilation is important)
+5. ALWAYS recommend consulting a doctor for health concerns
+6. ALWAYS cite CPCB/WHO guidelines when making health recommendations
+7. Keep responses concise - maximum 200 words for chat responses
+8. Use simple English appropriate for Indian families
+9. When unsure about data, say so clearly
+10. Add this disclaimer when discussing health: "This is general awareness information, not medical advice."
+
+Recommendation priority:
+- Children: highest protection priority
+- Senior citizens: high protection priority  
+- People with respiratory/cardiovascular conditions: high protection priority
+- Healthy adults: standard recommendations
+"""
+
+CHAT MESSAGE PROMPT TEMPLATE:
+
+User message: {userMessage}
+
+(Send the system prompt + conversation history + this user message to Gemini)
+
+INDOOR PLAN PROMPT:
+
+"""
+Based on the following home assessment, generate a personalized indoor air 
+quality improvement plan for this family:
+
+Home Details:
+- Rooms: {roomCount} rooms, {windowCount} windows
+- Floor: {floorNumber} of {totalFloors}
+- Location: {cityName} (current AQI: {aqiValue} - {aqiCategory})
+- Has air purifier: {hasAirPurifier}
+- Has kitchen exhaust: {hasExhaustFan}
+- Cooking fuel: {cookingFuel}
+- Family: {familyComposition}
+- Budget: ₹{budget}
+
+Generate 5-8 specific, actionable indoor air improvement recommendations.
+Format as a numbered list.
+For each recommendation:
+1. What to do (specific action)
+2. Why it helps (brief explanation)
+3. Approximate cost (₹)
+4. Priority: HIGH / MEDIUM / LOW
+
+Do not recommend expensive equipment if budget is below ₹2000.
+Focus on free behavioral changes first, then affordable solutions.
+"""
+
+================================================================================
+SECTION D: OPEN-METEO WEATHER API INTEGRATION
+================================================================================
+
+NO API KEY REQUIRED. Free for non-commercial and fair use.
+
+RECOMMENDED ENDPOINT:
+  GET https://api.open-meteo.com/v1/forecast
+  ?latitude=18.5204
+  &longitude=73.8567
+  &current=temperature_2m,relative_humidity_2m,apparent_temperature,
+            precipitation,weather_code,wind_speed_10m,wind_direction_10m,
+            wind_gusts_10m
+  &hourly=temperature_2m,pm10,pm2_5           (note: forecast pm data, not measured)
+  &timezone=Asia/Kolkata
+  &forecast_days=1
+
+WEATHER CODE → ICON MAPPING:
+  0        → ☀️ Clear sky
+  1,2,3    → ⛅ Partly cloudy
+  45,48    → 🌫️ Foggy
+  51-67    → 🌧️ Rain
+  71-77    → ❄️ Snow
+  80-82    → 🌦️ Showers
+  95-99    → ⛈️ Thunderstorm
+
+USE WEATHER DATA FOR:
+  ✅ Display temperature/humidity/wind context
+  ✅ Explain why AQI might be worse (high humidity traps particles)
+  ✅ Note foggy/still conditions that worsen smog
+  ❌ Do NOT use weather forecast to predict AQI values
+  ❌ Do NOT claim AQI will be X because weather is Y
+
+================================================================================
+SECTION E: NOTIFICATION SYSTEM DESIGN
+================================================================================
+
+AQI ALERT THRESHOLDS (defaults, user-adjustable):
+  - Crosses 100 (Moderate): "Air quality is Moderate today. Take precautions."
+  - Crosses 200 (Poor): "Air quality is Poor! Limit outdoor activities."
+  - Crosses 300 (Very Poor): "Air quality is Very Poor! Avoid outdoor exposure."
+  - Crosses 400 (Severe): "SEVERE air pollution! Stay indoors."
+
+MORNING BRIEFING (sent at 7:00 AM IST):
+  "Good morning! Today's AQI in {city}: {aqi} ({category}).
+   {family-specific advice}
+   Best time for outdoor activities: {time range if available}
+   Have a healthy day! 🌿"
+
+SMART DEBOUNCING:
+  - Don't send duplicate alerts within 2 hours for same threshold
+  - Don't send morning briefing if AQI is Good (no alert needed)
+  - Batch multiple family member alerts into one notification
+
+BROWSER PUSH NOTIFICATIONS SETUP:
+  1. Register service worker in React app
+  2. Request notification permission from user
+  3. Store browser push endpoint + keys in user_preferences
+  4. Backend sends push via Web Push Protocol
+  5. Libraries: web-push (npm) on backend side
+
+================================================================================
+SECTION F: DATA FRESHNESS & ERROR HANDLING STRATEGY
+================================================================================
+
+DATA FRESHNESS INDICATORS:
+  - Define "fresh" = data less than 60 minutes old
+  - Define "stale" = data 1-3 hours old (show warning)
+  - Define "expired" = data more than 3 hours old (don't show as current)
+
+FRONTEND ERROR STATES TO IMPLEMENT:
+
+1. API Loading State:
+   → Show skeleton cards (Tailwind animate-pulse)
+   → "Loading air quality data..." message
+
+2. No Data Available:
+   → Show: "Air quality data not available for [Location]"
+   → Provide link: "Check CPCB Dashboard (opens in new tab)"
+   → Never show 0 or null as AQI
+
+3. API Error / Timeout:
+   → Show: "Unable to load data. Please check your connection."
+   → Retry button
+   → Show last cached data with "Last known reading" label
+
+4. Location Not Found:
+   → Show: "We couldn't find monitoring stations near [Location]."
+   → Suggest nearby major cities
+
+5. Stale Data:
+   → Show warning banner: "⚠️ Data last updated [X hours ago]. 
+      May not reflect current conditions."
+
+BACKEND ERROR LOGGING:
+  - Log all OpenAQ API failures with error details
+  - Log all Gemini API errors
+  - Alert admin if AQI data fails for >1 hour (via email)
+  - Track API quota usage per hour (prevent hitting limits)
+
+================================================================================
+END OF API INTEGRATION SUGGESTIONS
+================================================================================

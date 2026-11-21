@@ -1,0 +1,352 @@
+================================================================================
+SUGGESTION FILE 2: TECHNOLOGY STACK & ARCHITECTURE RECOMMENDATIONS
+SaansSaathi - Specific Technical Decisions & Rationale
+================================================================================
+
+================================================================================
+SECTION A: FRONTEND LIBRARY SELECTION RATIONALE
+================================================================================
+
+WHY VITE OVER CREATE-REACT-APP:
+  - CRA is deprecated (no longer maintained by Facebook)
+  - Vite is 10-100x faster in development (HMR < 50ms)
+  - Native ESM in development = no bundling overhead
+  - Smaller production builds
+  - Official React team recommendation as of 2024
+
+WHY ZUSTAND OVER REDUX:
+  - Redux has too much boilerplate for a college project
+  - Zustand: 1KB, no providers, no reducers, just stores
+  - Easier to understand and explain in college project evaluation
+  - Works perfectly with React Suspense and concurrent features
+  - Migration path to Redux Toolkit exists if project grows
+
+WHY SHADCN/UI OVER MATERIAL UI:
+  - shadcn/ui: Components you own (copy to src/components)
+  - Material UI: Components in node_modules (black box)
+  - shadcn/ui = Radix UI (accessible) + Tailwind CSS (style)
+  - Easier to customize to SaansSaathi brand colors
+  - No version conflicts with React 18
+  - Much smaller bundle size
+
+WHY RECHARTS OVER CHART.JS:
+  - Recharts is built for React (native components, not DOM manipulation)
+  - Better TypeScript support
+  - Easier to customize (all props are React props)
+  - Responsive by design
+  - Chart.js requires a wrapper (react-chartjs-2) with its own bugs
+
+WHY LEAFLET OVER GOOGLE MAPS:
+  - Google Maps API is paid (after \$200/month free credit)
+  - Leaflet + OpenStreetMap is 100% free
+  - OpenStreetMap tiles are high quality for Indian cities
+  - React-Leaflet gives us React components
+  - Sufficient for all our map features
+
+ALTERNATIVE: Consider ArcGIS Basemaps (free tier available)
+            or CartoDB Positron tiles (cleaner, lighter visual)
+
+================================================================================
+SECTION B: BACKEND ARCHITECTURE RECOMMENDATIONS
+================================================================================
+
+SPRING BOOT PROJECT STRUCTURE:
+  Use PACKAGE-BY-FEATURE not PACKAGE-BY-LAYER
+
+  RECOMMENDED (Package by feature):
+    com.saanssaathi.app/
+      auth/          (AuthController, AuthService, JwtProvider)
+      airquality/    (AirQualityController, AqiService, AqiReading entity)
+      family/        (FamilyController, FamilyService, FamilyMember entity)
+      indoor/        (IndoorController, IndoorService, IndoorAssessment entity)
+      planner/       (PlannerController, PlannerService, Routine entity)
+      ai/            (AiController, GeminiService, ChatSession entity)
+      notifications/ (NotificationController, NotificationService)
+      admin/         (AdminController, AdminService)
+      common/        (GlobalExceptionHandler, ApiResponse, BaseEntity)
+      config/        (SecurityConfig, WebConfig, CacheConfig)
+      integration/   (OpenAQClient, OpenMeteoClient, GeminiClient)
+
+  WHY: Related classes stay together. When you change air quality feature,
+  you only touch the airquality/ package. Much cleaner for review.
+
+API VERSIONING:
+  Use URL versioning: /api/v1/air-quality/current
+  - Future-proof if you add breaking changes
+  - Easy to understand
+  - Compatible with all HTTP clients
+  Add "v1" prefix from Day 1 (painful to add later)
+
+RESPONSE FORMAT - Standardize from Day 1:
+  {
+    "success": true,
+    "data": { ... actual response ... },
+    "message": "Air quality data fetched successfully",
+    "timestamp": "2026-11-21T14:30:00Z",
+    "errorCode": null
+  }
+  
+  On error:
+  {
+    "success": false,
+    "data": null,
+    "message": "Location not found",
+    "timestamp": "2026-11-21T14:30:00Z",
+    "errorCode": "LOCATION_NOT_FOUND"
+  }
+
+JWT IMPLEMENTATION DETAILS:
+  - Access token: 1 hour expiry
+  - Refresh token: 7 days expiry
+  - Store refresh token in DB (allows invalidation)
+  - Use RS256 algorithm (asymmetric) for production security
+    OR HS256 with 256-bit secret (simpler for college project)
+  - Rotate refresh token on each use
+
+================================================================================
+SECTION C: DATABASE DESIGN RECOMMENDATIONS
+================================================================================
+
+FLYWAY VS LIQUIBASE:
+  Use Flyway for this project.
+  - Simpler syntax (pure SQL files)
+  - Less setup overhead than Liquibase's XML/YAML format
+  - Both Spring Boot teams recommend Flyway for SQL shops
+  - File naming: V1__description.sql, V2__description.sql
+
+MIGRATION FILE STRATEGY:
+  V1__create_users_and_auth.sql
+  V2__create_locations_and_cities.sql
+  V3__create_family_tables.sql
+  V4__create_air_quality_tables.sql
+  V5__create_indoor_assessment_tables.sql
+  V6__create_planner_tables.sql
+  V7__create_notification_tables.sql
+  V8__create_chat_tables.sql
+  V9__create_challenges_tables.sql
+  V10__seed_cities_india.sql
+  V11__seed_pollutants_and_thresholds.sql
+  V12__seed_default_challenges.sql
+
+IMPORTANT INDEX STRATEGY:
+  Add these indexes for performance:
+  - aqi_readings: INDEX(station_id, measured_at) - for history queries
+  - aqi_readings: INDEX(measured_at) - for time-based cleanup
+  - pollutant_readings: INDEX(aqi_reading_id) - for joins
+  - notifications: INDEX(user_id, is_read) - for notification queries
+  - chat_messages: INDEX(session_id, created_at) - for chat history
+  - family_members: INDEX(family_group_id) - for family queries
+
+TIMEZONE STRATEGY:
+  - Store ALL timestamps in UTC in database
+  - MySQL: DATETIME type with UTC_TIMESTAMP() default
+  - Spring: @Column + @CreationTimestamp from Hibernate
+  - Frontend: Convert UTC → local timezone using date-fns or Intl API
+  - User's timezone stored in user_preferences table
+
+SENSITIVE DATA HANDLING:
+  - Never store raw AQI health assessments as "medical records"
+  - Family member "sensitive category" is optional and consent-driven
+  - No actual health measurements stored (only preferences)
+  - Add GDPR-inspired data deletion: DELETE /api/users/me endpoint
+
+================================================================================
+SECTION D: API INTEGRATION STRATEGY
+================================================================================
+
+OPENAQ API (PRIMARY AIR QUALITY DATA):
+  Registration URL: https://openaq.org/register
+  Free tier: 60 requests/minute, 2000/day
+  
+  KEY ENDPOINTS TO USE:
+    GET https://api.openaq.org/v3/locations
+        ?coordinates={lat},{lng}&radius=25000&limit=20
+        Headers: X-API-Key: YOUR_KEY
+    
+    GET https://api.openaq.org/v3/sensors/{sensorId}/measurements/latest
+    
+    GET https://api.openaq.org/v3/sensors/{sensorId}/hours
+        ?date_from=2026-11-20T00:00:00Z&date_to=2026-11-21T00:00:00Z
+  
+  CACHING STRATEGY:
+    - Cache location list per city: 24 hours (stations don't move)
+    - Cache latest measurements: 15 minutes
+    - Cache hourly history: 1 hour (past data doesn't change)
+  
+  COVERAGE NOTE:
+    OpenAQ has limited coverage for some smaller Indian cities.
+    For cities not covered, show:
+    "Air quality data is not available for this location from our sources.
+     Please check CPCB dashboard directly at app.cpcbccr.com"
+  
+  DO NOT:
+    - Scrape CPCB website (unreliable, violates ToS)
+    - Display placeholder/fake AQI values
+    - Call OpenAQ API from frontend (exposes API key)
+
+OPEN-METEO (WEATHER - NO API KEY NEEDED):
+  Free, no authentication, no rate limits (fair use)
+  
+  ENDPOINT:
+    GET https://api.open-meteo.com/v1/forecast
+        ?latitude={lat}&longitude={lng}
+        &current=temperature_2m,relative_humidity_2m,
+                 wind_speed_10m,wind_direction_10m,weather_code
+        &timezone=Asia/Kolkata
+  
+  Use for: Temperature, humidity, wind (pollution context, NOT AQI prediction)
+
+GEMINI API (AI FEATURES):
+  Registration: https://aistudio.google.com
+  Free tier: 15 requests/minute (Gemini 1.5 Flash)
+  
+  RECOMMENDED MODEL: gemini-1.5-flash (fast, cheap, sufficient)
+  FOR COMPLEX ANALYSIS: gemini-1.5-pro (slower, more capable)
+  
+  JAVA SDK DEPENDENCY (pom.xml):
+    <dependency>
+      <groupId>com.google.genai</groupId>
+      <artifactId>google-genai</artifactId>
+      <version>1.0.0</version>
+    </dependency>
+  
+  PROMPT ENGINEERING TIPS:
+    1. Always inject current AQI context into every prompt
+    2. Set strong system prompt once (not repeated per message)
+    3. Use temperature=0.3 for health advice (less creative, more reliable)
+    4. Use temperature=0.7 for general chat (more natural)
+    5. Set maxOutputTokens=512 for quick recommendations
+    6. Set maxOutputTokens=1024 for detailed plans
+  
+  COST ESTIMATION:
+    Free tier is sufficient for development and demo.
+    At 100 daily active users each sending 10 messages:
+    1000 req/day × 1000 tokens avg = 1M tokens/day
+    Gemini Flash: ~\$0.075 per 1M tokens input = \$0.075/day (\$2.25/month)
+    Very affordable for a real deployment.
+
+================================================================================
+SECTION E: DEPLOYMENT RECOMMENDATIONS
+================================================================================
+
+FRONTEND: VERCEL (STRONGLY RECOMMENDED)
+  Why: 
+    - Zero configuration for Vite/React projects
+    - Automatic deployments from GitHub push
+    - Free custom domain (yourdomain.vercel.app)
+    - Built-in CDN, edge caching, HTTPS
+    - Preview deployments for every PR
+    - Free tier is very generous (100GB bandwidth/month)
+  
+  Configuration needed:
+    - vercel.json: SPA routing rewrites
+    - Environment variables: VITE_API_BASE_URL
+    - Build command: npm run build
+    - Output directory: dist
+
+BACKEND: RENDER (RECOMMENDED OVER HEROKU)
+  Why:
+    - Heroku removed free tier
+    - Render has free tier (sleeps after 15 min inactivity)
+    - Automatic deployment from GitHub
+    - Supports Java/Maven builds natively
+    - Free PostgreSQL DB (but we're using MySQL, so use Railway for DB)
+    - Easy environment variable management
+  
+  IMPORTANT: Render free tier sleeps after 15 minutes of inactivity.
+  First request after sleep takes 30-60 seconds (cold start).
+  For college demo: This is acceptable.
+  For production: Upgrade to \$7/month plan (always-on).
+  
+  Alternative: Railway.app (also works, slightly different setup)
+
+DATABASE: RAILWAY.APP (MYSQL)
+  Why:
+    - Render MySQL is a paid feature
+    - Railway offers MySQL free tier (500MB, shared)
+    - Persistent (unlike some free tiers that reset)
+    - Direct connection string (no SSL drama)
+    - \$5 credit free each month
+  
+  Setup:
+    - Create new MySQL service on Railway
+    - Copy connection string
+    - Set as DB_URL env var on Render
+
+DOMAIN: 
+  - Vercel provides: saanssaathi.vercel.app (free)
+  - For custom domain: saanssaathi.in
+    - .in domain costs ~₹700/year
+    - Add to Vercel custom domains (free)
+    - Point DNS to Vercel servers
+
+================================================================================
+SECTION F: PERFORMANCE & SCALABILITY TIPS
+================================================================================
+
+FRONTEND PERFORMANCE:
+  1. Code Splitting (React.lazy + Suspense)
+     - Load map page only when user navigates to map
+     - Load chat only when chat page opens
+     - Cuts initial bundle size by 40-60%
+  
+  2. Image Optimization
+     - Use WebP format for all images
+     - Use Next-gen formats where possible
+     - Add loading="lazy" to all below-fold images
+  
+  3. API Response Caching
+     - Cache GET /api/air-quality/current in localStorage (15 min TTL)
+     - Cache GET /api/family in memory (session)
+     - Use React Query or SWR for automatic cache management
+  
+  4. Bundle Analysis
+     - Run: npm run build -- --analyze
+     - Look for large dependencies (moment.js, lodash)
+     - Use date-fns instead of moment.js (tree-shakeable)
+
+BACKEND PERFORMANCE:
+  1. Spring Caching
+     - @EnableCaching in main class
+     - @Cacheable on AQI service methods
+     - Caffeine cache (in-memory, fast) for local dev
+     - Redis cache for production (Railway Redis free tier)
+  
+  2. Database Query Optimization
+     - Add EXPLAIN to slow queries during development
+     - Use @Query with JPQL for complex queries
+     - Use @EntityGraph for avoiding N+1 queries
+     - Page AQI history (don't return 30 days of hourly data at once)
+  
+  3. Async Processing
+     - @Async for sending email notifications
+     - @Scheduled for AQI refresh jobs
+     - Don't block HTTP threads for Gemini API calls
+     - Use CompletableFuture for parallel API calls
+
+================================================================================
+SECTION G: SECURITY CHECKLIST
+================================================================================
+
+MUST DO:
+  [ ] Store JWT secret as environment variable (never in code)
+  [ ] Store all API keys as environment variables
+  [ ] Enable HTTPS everywhere (Vercel + Render do this automatically)
+  [ ] Use BCrypt for password hashing (strength factor 12)
+  [ ] Add rate limiting: 10 req/sec per IP (Spring Boot rate limiter)
+  [ ] Sanitize all user inputs (Spring Validation @Valid annotations)
+  [ ] SQL injection prevented by JPA (parameterized queries)
+  [ ] XSS prevented by React (JSX auto-escapes)
+  [ ] Add Content-Security-Policy header
+  [ ] CORS whitelist only your frontend URL
+
+MUST NOT:
+  [ ] Never log JWT tokens or API keys
+  [ ] Never store raw passwords
+  [ ] Never trust client-sent AQI values (validate server-side)
+  [ ] Never show detailed stack traces in production API responses
+  [ ] Never commit .env files to git
+
+================================================================================
+END OF TECH STACK SUGGESTIONS
+================================================================================

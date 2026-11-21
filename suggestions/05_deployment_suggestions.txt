@@ -1,0 +1,471 @@
+================================================================================
+SUGGESTION FILE 5: DEPLOYMENT & PRODUCTION READINESS GUIDE
+SaansSaathi - Step-by-Step Deployment Instructions
+================================================================================
+
+================================================================================
+SECTION A: PRE-DEPLOYMENT CHECKLIST
+================================================================================
+
+BEFORE DEPLOYING ANYTHING, VERIFY:
+
+CODE QUALITY:
+  [ ] All TODO comments resolved or documented
+  [ ] No hardcoded API keys, passwords, or secrets in code
+  [ ] No hardcoded localhost:8080 URLs in frontend
+  [ ] Environment variables used for all configuration
+  [ ] .gitignore includes: .env, *.env.local, target/, node_modules/, .idea/
+  [ ] No System.out.println() left in production Java code (use Logback)
+  [ ] No console.log() left in production React code
+
+SECURITY:
+  [ ] CORS configured to only allow production frontend URL
+  [ ] Rate limiting implemented on AI endpoints
+  [ ] Swagger UI disabled in production profile
+  [ ] Spring Security protects all /api/** routes
+  [ ] Actuator endpoints secured (or disabled except /health)
+  [ ] SQL injection prevented (JPA parameterized queries - auto)
+  [ ] XSS prevented (React auto-escapes JSX - auto)
+  [ ] All inputs validated with Spring Validation
+  [ ] JWT secret is a 256-bit random string (not "secret123")
+
+DATABASE:
+  [ ] All Flyway migrations tested on clean database
+  [ ] Seed data verified (cities, pollutants, challenges)
+  [ ] Database password is strong (12+ chars, mixed case, numbers)
+  [ ] Connection pooling configured (HikariCP settings)
+  [ ] No sensitive data in seed files (no real user data)
+
+FRONTEND:
+  [ ] All environment variables in .env.production
+  [ ] npm run build completes without errors
+  [ ] Build output is in /dist directory
+  [ ] No build warnings about large chunk sizes (fix code splitting)
+  [ ] 404 page exists
+  [ ] All external links open in new tab (target="_blank" + rel="noopener")
+
+================================================================================
+SECTION B: DATABASE DEPLOYMENT - RAILWAY.APP
+================================================================================
+
+STEP 1: Create Railway Account
+  → Go to https://railway.app
+  → Sign up with GitHub account (recommended)
+  → Free \$5 credit per month
+
+STEP 2: Create MySQL Service
+  → Click "New Project"
+  → Select "Provision MySQL"
+  → Railway creates MySQL 8.0 instance
+  → Wait 2-3 minutes for provisioning
+
+STEP 3: Get Connection Details
+  → Click on the MySQL service
+  → Go to "Variables" tab
+  → Copy these values:
+      MYSQLHOST
+      MYSQLPORT  
+      MYSQLUSER
+      MYSQLPASSWORD
+      MYSQLDATABASE
+  → Or use the full MYSQL_URL connection string
+
+STEP 4: Connect Locally to Test
+  → Use Railway CLI: railway run mysql -h \$MYSQLHOST -P \$MYSQLPORT -u \$MYSQLUSER -p\$MYSQLPASSWORD \$MYSQLDATABASE
+  → Or add external IP access in Railway settings
+  → Verify connection works
+
+STEP 5: Run Flyway Migrations
+  → Flyway runs automatically on Spring Boot startup
+  → Set SPRING_FLYWAY_ENABLED=true in environment
+  → Check Railway logs to verify migrations ran successfully
+  → "Successfully applied X migrations to schema 'saanssaathi'" = success
+
+STEP 6: Verify Seed Data
+  → Connect to DB and run: SELECT COUNT(*) FROM cities;
+  → Should return 20+ rows
+  → SELECT COUNT(*) FROM pollutants; → Should return 6
+  → SELECT COUNT(*) FROM clean_air_challenges; → Should return 10+
+
+================================================================================
+SECTION C: BACKEND DEPLOYMENT - RENDER.COM
+================================================================================
+
+STEP 1: Prepare Dockerfile
+  Create file: backend/Dockerfile
+  
+  FROM eclipse-temurin:21-jre-alpine
+  WORKDIR /app
+  COPY target/saanssaathi-*.jar app.jar
+  EXPOSE 8080
+  
+  # Health check
+  HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8080/api/health || exit 1
+  
+  ENTRYPOINT ["java", \
+    "-Dspring.profiles.active=prod", \
+    "-XX:MaxRAMPercentage=75", \
+    "-Djava.security.egd=file:/dev/./urandom", \
+    "-jar", "app.jar"]
+
+STEP 2: Create application-prod.yml
+  Create: backend/src/main/resources/application-prod.yml
+  
+  spring:
+    datasource:
+      url: \${DB_URL}
+      username: \${DB_USERNAME}
+      password: \${DB_PASSWORD}
+      hikari:
+        maximum-pool-size: 5         # Render free tier has limited connections
+    
+    jpa:
+      hibernate:
+        ddl-auto: validate           # NEVER create/update in production
+      show-sql: false
+    
+    flyway:
+      enabled: true
+      baseline-on-migrate: true
+    
+    cache:
+      type: caffeine
+  
+  security:
+    jwt:
+      secret: \${JWT_SECRET}
+      expiration: 3600000            # 1 hour in milliseconds
+      refresh-expiration: 604800000  # 7 days
+  
+  openaq:
+    api:
+      key: \${OPENAQ_API_KEY}
+      base-url: https://api.openaq.org/v3
+  
+  gemini:
+    api:
+      key: \${GEMINI_API_KEY}
+  
+  cors:
+    allowed-origins: \${FRONTEND_URL}
+  
+  logging:
+    level:
+      com.saanssaathi: INFO
+      org.springframework.security: WARN
+      org.hibernate: WARN
+
+STEP 3: Create Render Web Service
+  → Go to https://render.com
+  → Click "New +" → "Web Service"
+  → Connect GitHub repository
+  → Select the repository
+  → Configure:
+      Name: saanssaathi-backend
+      Region: Singapore (closest to India)
+      Branch: main
+      Runtime: Docker (uses Dockerfile)
+      OR Runtime: Java (Render auto-detects Maven)
+  
+  If using Maven (simpler):
+    Build Command: cd backend && mvn clean package -DskipTests
+    Start Command: java -Dspring.profiles.active=prod -jar backend/target/saanssaathi-*.jar
+
+STEP 4: Set Environment Variables on Render
+  → In Render service → "Environment" tab → "Add Environment Variable"
+  
+  SPRING_PROFILES_ACTIVE = prod
+  DB_URL = jdbc:mysql://\${MYSQLHOST}:\${MYSQLPORT}/\${MYSQLDATABASE}?useSSL=true&requireSSL=true&serverTimezone=UTC
+  DB_USERNAME = (from Railway)
+  DB_PASSWORD = (from Railway)
+  JWT_SECRET = (generate: openssl rand -base64 64)
+  OPENAQ_API_KEY = (from openaq.org)
+  GEMINI_API_KEY = (from aistudio.google.com)
+  FRONTEND_URL = https://saanssaathi.vercel.app
+  JAVA_OPTS = -Xmx450m -Xms256m   (memory limit for Render free tier)
+
+STEP 5: Deploy
+  → Click "Create Web Service"
+  → Wait 5-10 minutes for first deploy
+  → Check logs for "Started Application in X.X seconds"
+  → If errors, check logs carefully
+
+STEP 6: Verify Backend is Running
+  → Visit: https://saanssaathi-backend.onrender.com/api/health
+  → Should return: {"status":"UP","timestamp":"..."}
+  → If 503, the service is cold-starting (wait 30-60 seconds)
+
+RENDER FREE TIER LIMITATIONS:
+  - Service sleeps after 15 minutes of inactivity
+  - Cold start takes 30-60 seconds
+  - 512MB RAM limit
+  - 100GB egress bandwidth/month
+  
+  WORKAROUND FOR SLEEP:
+  Add a free cron job on cron-job.org to ping /api/health every 10 minutes.
+  This keeps Render service awake during business hours.
+  Set cron schedule: */10 * * * * (every 10 minutes, 24/7)
+  OR: 0 8-23 * * * (every hour from 8am to 11pm IST)
+
+================================================================================
+SECTION D: FRONTEND DEPLOYMENT - VERCEL
+================================================================================
+
+STEP 1: Prepare Frontend for Production
+  Create: frontend/.env.production
+    VITE_API_BASE_URL=https://saanssaathi-backend.onrender.com/api
+    VITE_APP_VERSION=1.0.0
+    VITE_APP_NAME=SaansSaathi
+  
+  NEVER commit this file. Add to .gitignore.
+  Set these as Vercel Environment Variables instead.
+
+STEP 2: Create vercel.json
+  Create: frontend/vercel.json
+  {
+    "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+    "headers": [
+      {
+        "source": "/(.*)",
+        "headers": [
+          { "key": "X-Frame-Options", "value": "DENY" },
+          { "key": "X-Content-Type-Options", "value": "nosniff" },
+          { "key": "X-XSS-Protection", "value": "1; mode=block" },
+          { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+        ]
+      }
+    ]
+  }
+  
+  WHY: React SPA needs all routes to serve index.html (Vercel would 404 on direct URL access without this)
+
+STEP 3: Deploy to Vercel
+  Option A: Vercel CLI
+    npm install -g vercel
+    cd frontend
+    vercel login
+    vercel --prod
+  
+  Option B: GitHub Integration (Recommended)
+    → Go to https://vercel.com
+    → "New Project" → Import Git Repository
+    → Select your GitHub repo
+    → Configure:
+        Framework: Vite
+        Root Directory: frontend
+        Build Command: npm run build
+        Output Directory: dist
+        Install Command: npm install
+
+STEP 4: Set Environment Variables on Vercel
+  → Vercel Project → Settings → Environment Variables
+  → Add:
+      VITE_API_BASE_URL = https://saanssaathi-backend.onrender.com/api
+      VITE_APP_VERSION = 1.0.0
+
+STEP 5: Custom Domain (Optional)
+  → Vercel Project → Settings → Domains
+  → Add: saanssaathi.in (if you buy this domain)
+  → Vercel provides SSL certificate automatically
+  → Update DNS records as Vercel instructs (A record + CNAME)
+
+STEP 6: Verify Frontend Deployment
+  → Visit your Vercel URL: https://saanssaathi.vercel.app
+  → Test registration and login
+  → Test AQI data loading on dashboard
+  → Open browser DevTools → Network → Check API calls go to Render backend
+  → No CORS errors should appear
+
+================================================================================
+SECTION E: CI/CD PIPELINE - GITHUB ACTIONS
+================================================================================
+
+Create: .github/workflows/backend-ci.yml
+
+name: Backend CI
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths: [ 'backend/**' ]
+  pull_request:
+    branches: [ main ]
+    paths: [ 'backend/**' ]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: saanssaathi_test
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+      
+      - name: Cache Maven dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2
+          key: \${{ runner.os }}-m2-\${{ hashFiles('**/pom.xml') }}
+      
+      - name: Run tests
+        working-directory: backend
+        env:
+          DB_URL: jdbc:mysql://localhost:3306/saanssaathi_test?useSSL=false&serverTimezone=UTC
+          DB_USERNAME: root
+          DB_PASSWORD: rootpassword
+          JWT_SECRET: test-secret-key-for-ci-environment-32-chars
+          OPENAQ_API_KEY: test-key
+          GEMINI_API_KEY: test-key
+        run: mvn test
+      
+      - name: Build JAR
+        working-directory: backend
+        run: mvn package -DskipTests
+      
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: backend-jar
+          path: backend/target/*.jar
+
+---
+Create: .github/workflows/frontend-ci.yml
+
+name: Frontend CI
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths: [ 'frontend/**' ]
+  pull_request:
+    branches: [ main ]
+    paths: [ 'frontend/**' ]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+      
+      - name: Run linter
+        working-directory: frontend
+        run: npm run lint
+      
+      - name: Run type check
+        working-directory: frontend
+        run: npm run type-check
+      
+      - name: Run tests
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: http://localhost:8080/api
+        run: npm run test -- --run
+      
+      - name: Build
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: https://saanssaathi-backend.onrender.com/api
+        run: npm run build
+
+================================================================================
+SECTION F: PRODUCTION MONITORING
+================================================================================
+
+FREE MONITORING TOOLS:
+
+1. UptimeRobot (https://uptimerobot.com)
+   - Monitor both Vercel frontend and Render backend URLs
+   - Alert via email if site goes down
+   - Free tier: 50 monitors, 5-minute check interval
+   - Add monitors for:
+     → https://saanssaathi.vercel.app (HTTP 200 check)
+     → https://saanssaathi-backend.onrender.com/api/health (HTTP 200 check)
+
+2. Render Built-in Monitoring
+   - CPU and memory graphs in Render dashboard
+   - Request count and response time metrics
+   - Log streaming
+
+3. Vercel Analytics
+   - Basic web analytics built-in (free)
+   - Page views, unique visitors, bounce rate
+   - Core Web Vitals (LCP, FCP, CLS)
+
+LOGGING BEST PRACTICES:
+  Backend (application-prod.yml):
+    logging:
+      level:
+        root: WARN
+        com.saanssaathi: INFO          # Your app: INFO level
+        org.springframework.web: WARN
+        org.hibernate: WARN
+  
+  What to log at INFO level:
+    - User registration (email, timestamp)
+    - AQI data refresh job execution (success/failure, records updated)
+    - AI API calls (request type, tokens used, response time)
+    - Errors caught by GlobalExceptionHandler
+  
+  NEVER log:
+    - Passwords or password hashes
+    - JWT tokens
+    - API keys
+    - Full request bodies (may contain sensitive data)
+    - Credit card or payment information
+
+================================================================================
+SECTION G: COST ESTIMATION FOR PRODUCTION
+================================================================================
+
+MONTHLY COSTS (Starting Configuration):
+  Render.com (Backend):  FREE (\$0/month) with cold starts
+                         OR \$7/month for always-on
+  
+  Railway.app (MySQL):   FREE (~\$5 credit/month, ~500MB)
+                         Paid: \$5/month for 1GB
+  
+  Vercel (Frontend):     FREE (\$0/month) - very generous tier
+  
+  Domain (.in):          ~₹700/year (~₹58/month)
+  
+  Gemini API:            FREE tier (15 req/min, 1500 req/day)
+                         If exceeded: \$0.075/1M tokens (very cheap)
+  
+  OpenAQ API:            FREE tier (60 req/min, 2000 req/day)
+                         Sufficient for college project
+  
+  UptimeRobot:           FREE (50 monitors)
+  
+  TOTAL MINIMUM:         ~₹58/month (domain only)
+  TOTAL WITH ALWAYS-ON:  ~\$12/month (\$7 Render + \$5 Railway) + domain
+
+================================================================================
+END OF DEPLOYMENT SUGGESTIONS
+================================================================================
