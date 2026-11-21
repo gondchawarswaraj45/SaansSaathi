@@ -46,6 +46,7 @@ public class SecurityConfig {
                         // Public preview of AQI and indoor guides
                         .requestMatchers("/api/air-quality/current", "/api/air-quality/stations").permitAll()
                         .requestMatchers("/api/indoor/clean-air-room", "/api/indoor/diy-purifier-guide").permitAll()
+                        .requestMatchers("/api/ai/explain").permitAll()
                         // Protected endpoints
                         .anyRequest().authenticated()
                 )

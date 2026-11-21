@@ -1,6 +1,7 @@
 import { BrowserRouter } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import AppRoutes from './routes/AppRoutes'
+import { FloatingChatButton } from './components/chatbot/FloatingChatButton'
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
         }}
       />
       <AppRoutes />
+      <FloatingChatButton />
     </BrowserRouter>
   )
 }

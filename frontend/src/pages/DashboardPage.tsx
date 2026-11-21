@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { AIRecommendationCard } from '@/components/dashboard/AIRecommendationCard'
 import {
   Wind,
   ShieldAlert,
@@ -328,6 +329,9 @@ export default function DashboardPage() {
           })}
         </div>
       </div>
+
+      {/* AI Daily Intelligence Tip Card */}
+      <AIRecommendationCard currentAqi={aqiValue} city={selectedCity} />
 
       {/* Quick Action Navigation Tiles */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">

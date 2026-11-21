@@ -377,55 +377,55 @@ STEP 5 DELIVERABLES:
 
 ================================================================================
 STEP 6: AI INTEGRATION (GEMINI API)
-Status: [ ] Not Started
+Status: [x] Completed
 Estimated Time: 3-4 days
 Prerequisites: Steps 3-5 complete
 ================================================================================
 
 TASK 6.1 - Gemini Chatbot Backend
 -----------------------------------
-[ ] 6.1.1  Set up Gemini API key (from Google AI Studio)
+[x] 6.1.1  Set up Gemini API key (from Google AI Studio)
            - Store ONLY in backend environment variable
            - Never expose in frontend code
-[ ] 6.1.2  Create GeminiService with:
+[x] 6.1.2  Create GeminiService with:
            - buildSystemPrompt() method (includes AQI context + family profile)
            - chat(sessionId, userMessage, context) method
            - generateIndoorPlan(assessment) method
            - generateFamilyRecommendations(familyMembers, aqiReading) method
            - explainAqiTerm(term) method
-[ ] 6.1.3  Create ChatSession entity (id, userId, createdAt, title)
-[ ] 6.1.4  Create ChatMessage entity (id, sessionId, role, content, timestamp)
-[ ] 6.1.5  Create AIController:
+[x] 6.1.3  Create ChatSession entity (id, userId, createdAt, title)
+[x] 6.1.4  Create ChatMessage entity (id, sessionId, role, content, timestamp)
+[x] 6.1.5  Create AIController:
            POST /api/ai/chat (send message, get response)
            GET  /api/ai/chat/sessions (list user's sessions)
            GET  /api/ai/chat/sessions/{id}/messages
            POST /api/ai/indoor-plan
            POST /api/ai/family-recommendations
            GET  /api/ai/explain?term=pm25
-[ ] 6.1.6  Add safety guardrails in GeminiService:
+[x] 6.1.6  Add safety guardrails in GeminiService:
            - System prompt: "Do not diagnose medical conditions"
            - System prompt: "Do not recommend changing prescribed medications"
            - System prompt: "Never invent AQI measurements"
            - Validate AI response before sending to client
-[ ] 6.1.7  Add rate limiting for AI endpoints (10 requests/minute per user)
-[ ] 6.1.8  Store chat history in DB for context continuity
+[x] 6.1.7  Add rate limiting for AI endpoints (10 requests/minute per user)
+[x] 6.1.8  Store chat history in DB for context continuity
 
 TASK 6.2 - Chatbot Frontend
 -----------------------------
-[ ] 6.2.1  Create ChatPage.tsx (full-page chat interface)
-[ ] 6.2.2  Create ChatBubble component (user/assistant styling)
-[ ] 6.2.3  Create ChatInput component (textarea + send button)
-[ ] 6.2.4  Create SuggestedQuestions component (quick-tap prompts):
+[x] 6.2.1  Create ChatPage.tsx (full-page chat interface)
+[x] 6.2.2  Create ChatBubble component (user/assistant styling)
+[x] 6.2.3  Create ChatInput component (textarea + send button)
+[x] 6.2.4  Create SuggestedQuestions component (quick-tap prompts):
            "Is it safe to go running today?"
            "Should my child go to school?"
            "How can I reduce indoor pollution?"
            "What does PM2.5 mean?"
            "Best time to open windows today?"
-[ ] 6.2.5  Create ChatSidebar (session list, new chat button)
-[ ] 6.2.6  Implement streaming response display (or typing indicator)
-[ ] 6.2.7  Create floating ChatButton (FAB) on all pages to open chat
-[ ] 6.2.8  Add AI disclaimer banner: "For awareness only. Not medical advice."
-[ ] 6.2.9  Build AIRecommendationCard for dashboard (shows AI-generated daily tip)
+[x] 6.2.5  Create ChatSidebar (session list, new chat button)
+[x] 6.2.6  Implement streaming response display (or typing indicator)
+[x] 6.2.7  Create floating ChatButton (FAB) on all pages to open chat
+[x] 6.2.8  Add AI disclaimer banner: "For awareness only. Not medical advice."
+[x] 6.2.9  Build AIRecommendationCard for dashboard (shows AI-generated daily tip)
 
 STEP 6 DELIVERABLES:
 - Chatbot answers AQI questions in context
