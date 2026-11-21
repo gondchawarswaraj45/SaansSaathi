@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { challengeApi, CleanAirChallenge, ChallengeParticipant, UserBadge } from '@/api/challengeApi'
+import BackButton from '@/components/common/BackButton'
 
 export default function ChallengesPage() {
   const [challenges, setChallenges] = useState<CleanAirChallenge[]>([])
@@ -172,6 +173,7 @@ export default function ChallengesPage() {
 
   return (
     <div className="page-container space-y-8 animate-fade-in pb-16">
+      <BackButton />
       {/* Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-border">
         <div className="space-y-1">

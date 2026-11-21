@@ -16,6 +16,7 @@ import { mapApi, type MapStation } from '@/api/mapApi'
 import { MapLegend } from '@/components/map/MapLegend'
 import { StationPopupContent } from '@/components/map/StationPopupContent'
 import { useThemeStore } from '@/store/themeStore'
+import BackButton from '@/components/common/BackButton'
 
 // Helper component to programmatically pan/zoom map when city changes
 function ChangeMapView({ coords, zoom }: { coords: [number, number]; zoom: number }) {
@@ -180,6 +181,7 @@ export default function MapPage() {
 
   return (
     <div className="page-container space-y-6 animate-fade-in pb-10">
+      <BackButton />
       {/* Page Header */}
       <div className="pb-3 border-b border-border flex flex-wrap items-center justify-between gap-4">
         <div>

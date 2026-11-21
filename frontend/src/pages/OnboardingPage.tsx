@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Users, MapPin, CheckCircle, ArrowRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 import ThemeToggle from '@/components/common/ThemeToggle'
+import BackButton from '@/components/common/BackButton'
 
 export default function OnboardingPage() {
   const navigate = useNavigate()
@@ -17,6 +18,9 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-4 py-12 relative transition-colors">
+      <div className="absolute top-6 left-6">
+        <BackButton variant="outline" />
+      </div>
       <div className="absolute top-6 right-6">
         <ThemeToggle />
       </div>

@@ -20,6 +20,7 @@ import { notificationApi, NotificationItem, UserPreference } from '@/api/notific
 import { formatDistanceToNow } from 'date-fns'
 import toast from 'react-hot-toast'
 import { Link } from 'react-router-dom'
+import BackButton from '@/components/common/BackButton'
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
@@ -204,6 +205,7 @@ export default function NotificationsPage() {
 
   return (
     <div className="page-container max-w-4xl space-y-6 animate-fade-in pb-16">
+      <BackButton />
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-border">
         <div>

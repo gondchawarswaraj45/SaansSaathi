@@ -3,6 +3,7 @@ import { Settings, Shield, Bell, Moon, Sun, Monitor, MapPin, Check } from 'lucid
 import toast from 'react-hot-toast'
 import { notificationApi, UserPreference } from '@/api/notificationApi'
 import { useThemeStore } from '@/store/themeStore'
+import BackButton from '@/components/common/BackButton'
 
 export default function SettingsPage() {
   const [threshold, setThreshold] = useState(200)
@@ -49,6 +50,7 @@ export default function SettingsPage() {
 
   return (
     <div className="page-container max-w-2xl space-y-6 animate-fade-in">
+      <BackButton />
       <div className="pb-2 border-b border-border">
         <h1 className="text-2xl font-bold tracking-tight">Application Preferences</h1>
         <p className="text-sm text-muted-foreground mt-0.5">

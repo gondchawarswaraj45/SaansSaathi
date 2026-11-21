@@ -10,6 +10,7 @@ import {
   RotateCcw,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import BackButton from '@/components/common/BackButton'
 import {
   indoorApi,
   type IndoorAssessmentRequest,
@@ -82,6 +83,7 @@ export default function IndoorPage() {
 
   return (
     <div className="page-container space-y-8 animate-fade-in pb-12">
+      <BackButton />
       {/* Page Header */}
       <div className="pb-4 border-b border-border flex flex-wrap items-center justify-between gap-4">
         <div>

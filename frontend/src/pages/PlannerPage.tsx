@@ -19,6 +19,7 @@ import {
 import { PlannerHeader } from '@/components/planner/PlannerHeader'
 import { DailyScheduleTimeline } from '@/components/planner/DailyScheduleTimeline'
 import { CustomActivityModal } from '@/components/planner/CustomActivityModal'
+import BackButton from '@/components/common/BackButton'
 import { WeeklyOverview } from '@/components/planner/WeeklyOverview'
 
 export default function PlannerPage() {
@@ -139,6 +140,7 @@ export default function PlannerPage() {
 
   return (
     <div className="page-container space-y-6 animate-fade-in pb-12">
+      <BackButton />
       {/* Page Header */}
       <div className="pb-3 border-b border-border flex flex-wrap items-center justify-between gap-3">
         <div>

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Wind, Lock, Mail, User, MapPin, ArrowRight } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import ThemeToggle from '@/components/common/ThemeToggle'
+import BackButton from '@/components/common/BackButton'
 import toast from 'react-hot-toast'
 
 export default function RegisterPage() {
@@ -35,6 +36,9 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background text-foreground px-4 py-12 relative transition-colors">
+      <div className="absolute top-6 left-6">
+        <BackButton variant="outline" />
+      </div>
       <div className="absolute top-6 right-6">
         <ThemeToggle />
       </div>

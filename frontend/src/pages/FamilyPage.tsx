@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Users, Plus, ShieldAlert, Heart, Activity, CheckCircle, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
+import BackButton from '@/components/common/BackButton'
 
 interface Member {
   id: number
@@ -103,6 +104,7 @@ export default function FamilyPage() {
 
   return (
     <div className="page-container space-y-8 animate-fade-in">
+      <BackButton />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-border">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Family Protection Matrix</h1>

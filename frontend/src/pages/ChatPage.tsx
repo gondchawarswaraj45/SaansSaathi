@@ -10,6 +10,7 @@ import { ChatBubble } from '@/components/chatbot/ChatBubble'
 import { ChatInput } from '@/components/chatbot/ChatInput'
 import { SuggestedQuestions } from '@/components/chatbot/SuggestedQuestions'
 import { ChatSidebar } from '@/components/chatbot/ChatSidebar'
+import BackButton from '@/components/common/BackButton'
 
 export default function ChatPage() {
   const [sessions, setSessions] = useState<ChatSession[]>([])
@@ -143,6 +144,7 @@ export default function ChatPage() {
 
   return (
     <div className="page-container max-w-6xl space-y-6 animate-fade-in pb-10">
+      <BackButton />
       {/* Page Header */}
       <div className="pb-3 border-b border-border flex flex-wrap items-center justify-between gap-3">
         <div>

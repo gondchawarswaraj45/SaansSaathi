@@ -1,5 +1,5 @@
-import { Link } from 'react-router-dom'
-import { Wind, ArrowLeft } from 'lucide-react'
+import { Wind } from 'lucide-react'
+import BackButton from '@/components/common/BackButton'
 
 export default function NotFoundPage() {
   return (
@@ -11,12 +11,9 @@ export default function NotFoundPage() {
       <p className="text-sm text-muted-foreground mt-2 max-w-sm">
         The air quality report or page you're searching for does not exist.
       </p>
-      <Link
-        to="/dashboard"
-        className="mt-6 px-6 py-2.5 rounded-xl bg-brand-green-600 text-white font-semibold text-sm hover:bg-brand-green-700 flex items-center gap-2 shadow-md transition-all"
-      >
-        <ArrowLeft className="w-4 h-4" /> Return to Dashboard
-      </Link>
+      <div className="mt-6">
+        <BackButton label="Go Back to Previous Page" variant="outline" className="text-sm px-5 py-2.5" />
+      </div>
     </div>
   )
 }
