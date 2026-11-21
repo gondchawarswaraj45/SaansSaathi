@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import NotificationBell from '@/components/common/NotificationBell'
+import ThemeToggle from '@/components/common/ThemeToggle'
 
 export default function Navbar() {
   const location = useLocation()
@@ -74,7 +75,8 @@ export default function Navbar() {
           </nav>
 
           {/* User Controls & Notifications */}
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
             <NotificationBell />
 
             <Link
@@ -133,9 +135,7 @@ export default function Navbar() {
             )
           })}
           <div className="pt-3 border-t border-border flex items-center justify-between">
-            <span className="text-xs text-muted-foreground font-medium">
-              Signed in as <strong className="text-foreground">{user?.fullName}</strong>
-            </span>
+            <ThemeToggle showLabel={true} />
             <button
               onClick={logout}
               className="flex items-center gap-1.5 text-xs text-destructive font-medium px-2.5 py-1.5 rounded hover:bg-destructive/10"

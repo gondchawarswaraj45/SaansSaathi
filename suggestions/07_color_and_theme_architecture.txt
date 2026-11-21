@@ -1,0 +1,110 @@
+================================================================================
+SAANSSAATHI - COLOR SYSTEM & THEME ARCHITECTURE SPECIFICATION
+Document ID: 07_color_and_theme_architecture.txt
+Purpose: Comprehensive CPCB air quality color scales, dark/light theme tokens,
+         contrast accessibility, and CartoDB map tile synchronization.
+================================================================================
+
+1. OVERVIEW & PHILOSOPHY
+--------------------------------------------------------------------------------
+Air quality dashboards often fail in Indian conditions because they either:
+  a) Use non-standard color scales that confuse citizens who are accustomed to
+     official Central Pollution Control Board (CPCB) color codes.
+  b) Have poor contrast in dark mode, causing eye strain during evening or early
+     morning checks (which is exactly when smog inversion peaks).
+  c) Render blinding white map tiles when the rest of the application is in dark mode.
+
+SaansSaathi solves this by pairing a strict CPCB 6-tier color scale with a fully
+adaptive Tailwind CSS + CSS custom property dark/light token design system, persistent
+Zustand theme store, and CartoDB Voyager / Dark Matter dynamic tile switching.
+
+
+2. CPCB NATIONAL AIR QUALITY INDEX (NAQI) COLOR SYSTEM
+--------------------------------------------------------------------------------
+India follows the statutory 6-band CPCB color scale. SaansSaathi implements this
+both in the backend calculation engine (`AqiCalculationService.java`) and frontend
+theme tokens (`tailwind.config.js` and `AqiHeroCard.tsx`):
+
+AQI Band   Category      Hex Color    Tailwind Class     Health Action Level
+--------------------------------------------------------------------------------
+0 - 50     Good          #00B050      text-emerald-500   Minimal health impact
+51 - 100   Satisfactory  #92D050      text-lime-500      Minor breathing discomfort to sensitive people
+101 - 200  Moderate      #FFFF00/#F59E0B text-amber-500  Discomfort to people with lungs/asthma/heart diseases
+201 - 300  Poor          #FF9900      text-orange-500    Breathing discomfort to most people on prolonged exposure
+301 - 400  Very Poor     #FF0000      text-red-500       Respiratory illness on prolonged exposure
+401 - 500+ Severe        #7030A0/#7F1D1D text-purple-700 Severe respiratory effects even on healthy people
+
+Special Visual Contrast Note:
+- In Light Mode: Yellow/Moderate uses `#D97706` (amber-600) for readable text contrast on white cards.
+- In Dark Mode: Yellow/Moderate uses `#FBBF24` (amber-400) to ensure WCAG AAA compliance against slate-900.
+- Severe/Hazardous AQI pins on Leaflet maps feature pulsating radar rings (`animate-ping`)
+  to immediately alert users when an urban monitoring station crosses the emergency threshold (> 400).
+
+
+3. DESIGN SYSTEM THEME TOKENS (LIGHT & DARK MODES)
+--------------------------------------------------------------------------------
+The theme system uses HSL CSS variables defined in `frontend/src/assets/index.css`:
+
+Variable Name     Light Mode Value            Dark Mode Value
+--------------------------------------------------------------------------------
+--background      0 0% 100% (Pure White)      222.2 84% 4.9% (Deep Slate #020817)
+--foreground      222.2 84% 4.9% (Dark Slate) 210 40% 98% (Crisp Off-White)
+--card            0 0% 100% (Card White)      222.2 84% 6.9% (Rich Slate #050d1f)
+--card-foreground 222.2 84% 4.9%              210 40% 98%
+--muted           210 40% 96.1% (Light Gray)  217.2 32.6% 17.5% (Charcoal)
+--muted-foreground 215.4 16.3% 46.9%          215 20.2% 65.1%
+--border          214.3 31.8% 91.4%           217.2 32.6% 17.5%
+--primary         142.1 76.2% 36.3% (Green)   142.1 70.6% 45.3%
+--secondary       199 89% 48% (Sky Blue)      199 89% 55%
+
+Brand Identity Colors:
+- Forest Green (`brand-green`): Symbolizes clean atmospheric vitality, health, and renewal.
+- Clean Air Sky Blue (`brand-sky`): Symbolizes clear troposphere and particulate-free skies.
+
+
+4. THEME CONTROLLER & ZUSTAND STORE
+--------------------------------------------------------------------------------
+File: `frontend/src/store/themeStore.ts`
+- State: `theme: 'light' | 'dark' | 'system'`, `isDark: boolean`
+- Actions: `setTheme(theme)`, `toggleTheme()`
+- Persistence: Stored under key `saanssaathi_theme` in `localStorage`.
+- System Sync: Registers a `window.matchMedia('(prefers-color-scheme: dark)')` listener
+  so when 'system' is selected, changes to the user's OS dark/light mode immediately
+  propagate into the SaansSaathi UI without requiring a page refresh.
+
+
+5. MAP TILE THEME SYNCHRONIZATION
+--------------------------------------------------------------------------------
+File: `frontend/src/pages/MapPage.tsx`
+Leaflet tile layers dynamically adapt based on `themeStore.isDark`:
+
+- Light Mode:
+  URL: `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png`
+  Subdomains: `abcd`, maxZoom: 19
+  Provides clean roads, landmarks, and parks with subtle contrast for colorful AQI station pins.
+
+- Dark Mode:
+  URL: `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png`
+  Subdomains: `abcd`, maxZoom: 19
+  Provides a high-contrast dark slate cartography where CPCB colored station pins
+  (Green, Orange, Red, Purple) glow distinctly, mirroring satellite atmospheric heatmaps.
+
+
+6. CHART & TELEMETRY ADAPTABILITY
+--------------------------------------------------------------------------------
+File: `frontend/src/pages/DashboardPage.tsx`
+Recharts 24-hour Diurnal AQI Trend Curve:
+- Uses `stroke="currentColor"` and `tick={{ fill: 'currentColor' }}` on XAxis and YAxis
+  to ensure axis labels and tick markers dynamically inherit text color in both dark and light modes.
+- Tooltip container uses `bg-card text-foreground border-border` with backdrop blur
+  to match the ambient card design language.
+
+
+7. USER CONTROL POINTS
+--------------------------------------------------------------------------------
+Users can toggle or select their preferred theme across 4 primary interfaces:
+1. Navbar Desktop & Mobile Drawer: Animated Sun/Moon toggle button (`ThemeToggle.tsx`).
+2. Landing Page & Public Pages: Top navigation quick-toggle.
+3. Auth & Onboarding Pages: Top-right corner toggle for comfortable reading during registration.
+4. Settings Page: Dedicated 3-option visual selector (Light Mode, Dark Mode, System Sync).
+================================================================================

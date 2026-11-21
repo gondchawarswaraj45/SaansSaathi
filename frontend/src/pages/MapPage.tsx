@@ -15,6 +15,7 @@ import toast from 'react-hot-toast'
 import { mapApi, type MapStation } from '@/api/mapApi'
 import { MapLegend } from '@/components/map/MapLegend'
 import { StationPopupContent } from '@/components/map/StationPopupContent'
+import { useThemeStore } from '@/store/themeStore'
 
 // Helper component to programmatically pan/zoom map when city changes
 function ChangeMapView({ coords, zoom }: { coords: [number, number]; zoom: number }) {
@@ -47,6 +48,7 @@ export default function MapPage() {
   const [mapCenter, setMapCenter] = useState<[number, number]>(CITY_CENTERS.ALL.coords)
   const [mapZoom, setMapZoom] = useState<number>(CITY_CENTERS.ALL.zoom)
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null)
+  const { isDark } = useThemeStore()
 
   useEffect(() => {
     loadStations()
@@ -287,10 +289,15 @@ export default function MapPage() {
         >
           <ChangeMapView coords={mapCenter} zoom={mapZoom} />
 
-          {/* CartoDB Voyager or OpenStreetMap standard tiles */}
+          {/* CartoDB Voyager (Light) or Dark Matter (Dark) tiles */}
           <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            key={isDark ? 'dark-tiles' : 'light-tiles'}
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            url={
+              isDark
+                ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+                : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
+            }
           />
 
           {/* User GPS Pin if located */}

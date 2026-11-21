@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Wind, Lock, Mail, ArrowRight } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
+import ThemeToggle from '@/components/common/ThemeToggle'
 import toast from 'react-hot-toast'
 
 export default function LoginPage() {
@@ -32,7 +33,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4 py-12">
+    <div className="min-h-screen flex items-center justify-center bg-background text-foreground px-4 py-12 relative transition-colors">
+      <div className="absolute top-6 right-6">
+        <ThemeToggle />
+      </div>
       <div className="max-w-md w-full space-y-8 bg-card p-8 rounded-2xl border border-border shadow-lg">
         <div className="text-center">
           <div className="w-12 h-12 mx-auto rounded-xl bg-gradient-to-tr from-brand-green-700 to-brand-green-500 flex items-center justify-center text-white shadow-md mb-3">

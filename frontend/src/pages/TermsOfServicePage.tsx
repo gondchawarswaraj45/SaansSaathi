@@ -1,6 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { Wind, ArrowLeft, FileCheck, AlertCircle } from 'lucide-react'
+import { ThemeToggle } from '@/components/common/ThemeToggle'
 
 export default function TermsOfServicePage() {
   return (
@@ -15,12 +16,15 @@ export default function TermsOfServicePage() {
               Saans<span className="text-brand-sky-500">Saathi</span>
             </span>
           </Link>
-          <Link
-            to="/"
-            className="text-xs font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1.5"
-          >
-            <ArrowLeft className="w-4 h-4" /> Back to Home
-          </Link>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <Link
+              to="/"
+              className="text-xs font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1.5"
+            >
+              <ArrowLeft className="w-4 h-4" /> Back to Home
+            </Link>
+          </div>
         </div>
       </header>
 

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Settings, Shield, Bell, Moon, MapPin, Check } from 'lucide-react'
+import { Settings, Shield, Bell, Moon, Sun, Monitor, MapPin, Check } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { notificationApi, UserPreference } from '@/api/notificationApi'
+import { useThemeStore } from '@/store/themeStore'
 
 export default function SettingsPage() {
   const [threshold, setThreshold] = useState(200)
@@ -9,6 +10,7 @@ export default function SettingsPage() {
   const [emailAlerts, setEmailAlerts] = useState(false)
   const [pushNotifications, setPushNotifications] = useState(true)
   const [loading, setLoading] = useState(false)
+  const { theme, setTheme } = useThemeStore()
 
   useEffect(() => {
     const fetchPrefs = async () => {
@@ -73,6 +75,53 @@ export default function SettingsPage() {
               <option value={300}>300 (Very Poor - Severe smog)</option>
               <option value={400}>400 (Severe - Emergency only)</option>
             </select>
+          </div>
+
+          {/* Appearance / Theme Mode */}
+          <div className="pt-3 border-t border-border space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-semibold">Display Theme</div>
+                <div className="text-xs text-muted-foreground">
+                  Choose between Light, Dark, or System automatic theme.
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setTheme('light')}
+                className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                  theme === 'light'
+                    ? 'border-brand-green-600 bg-brand-green-50 text-brand-green-800 dark:bg-brand-green-950 dark:text-brand-green-200'
+                    : 'border-border text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                <Sun className="w-3.5 h-3.5 text-amber-500" /> Light
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme('dark')}
+                className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                  theme === 'dark'
+                    ? 'border-brand-green-600 bg-brand-green-50 text-brand-green-800 dark:bg-brand-green-950 dark:text-brand-green-200'
+                    : 'border-border text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                <Moon className="w-3.5 h-3.5 text-sky-400" /> Dark
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme('system')}
+                className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                  theme === 'system'
+                    ? 'border-brand-green-600 bg-brand-green-50 text-brand-green-800 dark:bg-brand-green-950 dark:text-brand-green-200'
+                    : 'border-border text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                <Monitor className="w-3.5 h-3.5" /> System
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center justify-between pt-3 border-t border-border">

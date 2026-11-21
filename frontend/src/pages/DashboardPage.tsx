@@ -245,8 +245,8 @@ export default function DashboardPage() {
                   <stop offset="95%" stopColor="#E76F51" stopOpacity={0.05} />
                 </linearGradient>
               </defs>
-              <XAxis dataKey="time" tick={{ fontSize: 11 }} />
-              <YAxis domain={[0, 400]} tick={{ fontSize: 11 }} />
+              <XAxis dataKey="time" stroke="currentColor" opacity={0.6} tick={{ fontSize: 11, fill: 'currentColor' }} />
+              <YAxis domain={[0, 400]} stroke="currentColor" opacity={0.6} tick={{ fontSize: 11, fill: 'currentColor' }} />
               <Tooltip
                 contentStyle={{
                   backgroundColor: '#1E293B',

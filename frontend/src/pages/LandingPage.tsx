@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import ThemeToggle from '@/components/common/ThemeToggle'
 import {
   Wind,
   ShieldCheck,
@@ -166,7 +167,8 @@ export default function LandingPage() {
             <Link to="/about" className="hover:text-foreground transition-colors">About</Link>
           </nav>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
             <Link
               to="/login"
               className="px-3.5 py-2 rounded-xl text-xs font-bold text-brand-green-700 dark:text-brand-green-400 hover:bg-brand-green-50 dark:hover:bg-brand-green-950 transition-colors"
