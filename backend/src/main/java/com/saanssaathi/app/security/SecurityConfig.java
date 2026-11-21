@@ -43,8 +43,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/health").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
-                        // Public preview of AQI
+                        // Public preview of AQI and indoor guides
                         .requestMatchers("/api/air-quality/current", "/api/air-quality/stations").permitAll()
+                        .requestMatchers("/api/indoor/clean-air-room", "/api/indoor/diy-purifier-guide").permitAll()
                         // Protected endpoints
                         .anyRequest().authenticated()
                 )

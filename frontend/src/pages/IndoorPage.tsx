@@ -1,212 +1,334 @@
-import { useState } from 'react'
-import { Home, Sparkles, Check, AlertCircle, Wrench, Shield, DollarSign } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import {
+  Home,
+  ShieldCheck,
+  Wrench,
+  TrendingDown,
+  Sparkles,
+  ClipboardCheck,
+  AlertTriangle,
+  RotateCcw,
+} from 'lucide-react'
 import toast from 'react-hot-toast'
+import {
+  indoorApi,
+  type IndoorAssessmentRequest,
+  type IndoorAssessmentResponse,
+  type IndoorRecommendation,
+  type CleanAirRoomGuide,
+  type DiyAirPurifierGuide,
+} from '@/api/indoorApi'
+import { HomeAssessmentForm } from '@/components/indoor/HomeAssessmentForm'
+import { IndoorRecommendationCard } from '@/components/indoor/IndoorRecommendationCard'
+import { CleanAirRoomGuideView } from '@/components/indoor/CleanAirRoomGuideView'
+import { DIYAirPurifierGuideView } from '@/components/indoor/DIYAirPurifierGuideView'
+import { OutdoorVsIndoorWidget } from '@/components/indoor/OutdoorVsIndoorWidget'
 
 export default function IndoorPage() {
-  const [assessmentStep, setAssessmentStep] = useState(1)
-  const [homeType, setHomeType] = useState('2 BHK Apartment')
-  const [hasPurifier, setHasPurifier] = useState(false)
-  const [hasExhaust, setHasExhaust] = useState(true)
-  const [cookingFuel, setCookingFuel] = useState('LPG')
-  const [budget, setBudget] = useState('1000')
+  const [activeTab, setActiveTab] = useState<'assessment' | 'recommendations' | 'clean-air' | 'diy' | 'comparison'>('assessment')
 
-  const [generatedPlan, setGeneratedPlan] = useState<any[] | null>(null)
-  const [isGenerating, setIsGenerating] = useState(false)
+  const [assessment, setAssessment] = useState<IndoorAssessmentResponse | null>(null)
+  const [recommendations, setRecommendations] = useState<IndoorRecommendation[]>([])
+  const [cleanAirGuide, setCleanAirGuide] = useState<CleanAirRoomGuide | null>(null)
+  const [diyGuide, setDiyGuide] = useState<DiyAirPurifierGuide | null>(null)
 
-  const handleGenerate = (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsGenerating(true)
-    setTimeout(() => {
-      setIsGenerating(false)
-      setGeneratedPlan([
-        {
-          title: 'Designate Master Bedroom as Clean Air Room',
-          desc: 'Seal door gap with a damp towel draft-stopper. Keep windows closed during 06:00-10:00 morning inversion.',
-          cost: '₹0 (Free)',
-          priority: 'CRITICAL',
-        },
-        {
-          title: 'Source Control: Discontinue Agarbatti & Mosquito Coils',
-          desc: '1 incense stick emits as much particulate matter as 3-5 cigarettes. Switch to liquid electric vaporizers or window nets.',
-          cost: '₹0 (Free)',
-          priority: 'HIGH',
-        },
-        {
-          title: 'Build EPA-Evaluated DIY Box Fan Air Filter (Corsi-Rosenthal style)',
-          desc: 'Tape one MERV-13 filter (20x20 in) to an ordinary box fan. Removes up to 80% fine particles in a 12x12 room.',
-          cost: '₹950 approx',
-          priority: 'RECOMMENDED',
-        },
-        {
-          title: 'Exhaust Fan Operation Protocol',
-          desc: 'Run kitchen exhaust for at least 15 minutes AFTER cooking turns off to evacuate nitrogen dioxide and ultrafine aerosols.',
-          cost: '₹0 (Free)',
-          priority: 'HIGH',
-        },
-      ])
-      toast.success('Custom Indoor Air Plan Generated!')
-    }, 1200)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Fetch initial guides and existing assessment
+  useEffect(() => {
+    async function loadData() {
+      setIsLoading(true)
+      try {
+        const [assessRes, cleanRes, diyRes] = await Promise.all([
+          indoorApi.getLatestAssessment().catch(() => null),
+          indoorApi.getCleanAirRoomGuide().catch(() => null),
+          indoorApi.getDIYAirPurifierGuide().catch(() => null),
+        ])
+
+        if (assessRes) {
+          setAssessment(assessRes)
+          if (assessRes.recommendations && assessRes.recommendations.length > 0) {
+            setRecommendations(assessRes.recommendations)
+          }
+        }
+
+        if (cleanRes) setCleanAirGuide(cleanRes)
+        if (diyRes) setDiyGuide(diyRes)
+      } catch (err) {
+        console.error('Failed to load indoor data', err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    loadData()
+  }, [])
+
+  const handleSubmitAssessment = async (data: IndoorAssessmentRequest) => {
+    setIsSubmitting(true)
+    try {
+      const response = await indoorApi.saveAssessment(data)
+      setAssessment(response)
+      setRecommendations(response.recommendations || [])
+      toast.success('Indoor Assessment Evaluated & Protocol Generated!')
+      setActiveTab('recommendations')
+    } catch (err) {
+      console.error('Failed to save assessment', err)
+      toast.error('Failed to process assessment. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
-    <div className="page-container space-y-8 animate-fade-in">
-      <div className="pb-2 border-b border-border">
-        <h1 className="text-2xl font-bold tracking-tight">Indoor Air Quality Assistant</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Did you know? Indoor air in Indian homes can be 2–5× more toxic than outdoor air during
-          winter cooking and stagnant periods.
-        </p>
+    <div className="page-container space-y-8 animate-fade-in pb-12">
+      {/* Page Header */}
+      <div className="pb-4 border-b border-border flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2.5">
+            <Home className="w-7 h-7 text-brand-green-600" />
+            Indoor Air Quality Assistant
+          </h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1 max-w-2xl">
+            Did you know? Indoor air in Indian homes during winter smog can be 2–5× more toxic than outdoor air due
+            to trapped cooking aerosols, incense smoke, and poor air exchange.
+          </p>
+        </div>
+
+        {assessment && (
+          <div className="flex items-center gap-2">
+            <span
+              className={`text-xs font-bold px-3 py-1.5 rounded-full ${
+                assessment.riskLevel === 'CRITICAL'
+                  ? 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400'
+                  : assessment.riskLevel === 'HIGH'
+                  ? 'bg-orange-100 text-orange-700 dark:bg-orange-950/60 dark:text-orange-400'
+                  : 'bg-brand-green-100 text-brand-green-700 dark:bg-brand-green-950/60 dark:text-brand-green-400'
+              }`}
+            >
+              Indoor Risk: {assessment.riskLevel}
+            </span>
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Assessment Wizard Form */}
-        <div className="lg:col-span-5 p-6 rounded-3xl bg-card border border-border shadow-sm space-y-6">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-brand-green-600" />
-            <h2 className="text-base font-bold">Generate AI Indoor Plan</h2>
+      {/* Navigation Tabs */}
+      <div className="flex items-center gap-1.5 sm:gap-2 p-1.5 bg-muted/60 rounded-2xl overflow-x-auto text-xs font-bold border border-border">
+        <button
+          onClick={() => setActiveTab('assessment')}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl whitespace-nowrap transition-all ${
+            activeTab === 'assessment'
+              ? 'bg-card text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <ClipboardCheck className="w-4 h-4 text-brand-green-600" /> Home Assessment
+        </button>
+
+        <button
+          onClick={() => setActiveTab('recommendations')}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl whitespace-nowrap transition-all ${
+            activeTab === 'recommendations'
+              ? 'bg-card text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Sparkles className="w-4 h-4 text-brand-green-600" /> Recommendations
+          {recommendations.length > 0 && (
+            <span className="ml-1 px-1.5 py-0.2 bg-brand-green-100 text-brand-green-800 text-[10px] rounded-full">
+              {recommendations.length}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setActiveTab('clean-air')}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl whitespace-nowrap transition-all ${
+            activeTab === 'clean-air'
+              ? 'bg-card text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <ShieldCheck className="w-4 h-4 text-brand-sky-600" /> Clean Air Room Blueprint
+        </button>
+
+        <button
+          onClick={() => setActiveTab('diy')}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl whitespace-nowrap transition-all ${
+            activeTab === 'diy'
+              ? 'bg-card text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Wrench className="w-4 h-4 text-purple-600" /> DIY Box Fan Purifier
+        </button>
+
+        <button
+          onClick={() => setActiveTab('comparison')}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl whitespace-nowrap transition-all ${
+            activeTab === 'comparison'
+              ? 'bg-card text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <TrendingDown className="w-4 h-4 text-emerald-600" /> Outdoor vs Indoor
+        </button>
+      </div>
+
+      {/* TAB 1: Assessment Form */}
+      {activeTab === 'assessment' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          <div className="lg:col-span-7">
+            <HomeAssessmentForm
+              initialData={assessment || undefined}
+              onSubmit={handleSubmitAssessment}
+              isSubmitting={isSubmitting}
+            />
           </div>
 
-          <form onSubmit={handleGenerate} className="space-y-4">
-            <div>
-              <label className="text-xs font-bold text-muted-foreground uppercase">Home Layout</label>
-              <select
-                value={homeType}
-                onChange={(e) => setHomeType(e.target.value)}
-                className="w-full mt-1 px-3 py-2 rounded-xl border border-border bg-background text-sm"
-              >
-                <option value="1 BHK Flat">1 BHK Flat</option>
-                <option value="2 BHK Apartment">2 BHK Apartment</option>
-                <option value="3 BHK / Bungalow">3 BHK / Bungalow</option>
-                <option value="Independent House">Independent House</option>
-              </select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-bold text-muted-foreground uppercase">Air Purifier?</label>
-                <select
-                  value={hasPurifier ? 'yes' : 'no'}
-                  onChange={(e) => setHasPurifier(e.target.value === 'yes')}
-                  className="w-full mt-1 px-3 py-2 rounded-xl border border-border bg-background text-sm"
-                >
-                  <option value="no">No Purifier</option>
-                  <option value="yes">Yes, Have Purifier</option>
-                </select>
+          <div className="lg:col-span-5 space-y-5">
+            <div className="p-6 rounded-3xl bg-gradient-to-br from-brand-green-500/10 via-brand-sky-500/5 to-transparent border border-brand-green-500/20 space-y-3">
+              <div className="flex items-center gap-2 text-brand-green-800 dark:text-brand-green-300 font-bold text-sm">
+                <Sparkles className="w-5 h-5 text-brand-green-600" />
+                Why Indoor Source Control Matters
               </div>
-
-              <div>
-                <label className="text-xs font-bold text-muted-foreground uppercase">Kitchen Chimney?</label>
-                <select
-                  value={hasExhaust ? 'yes' : 'no'}
-                  onChange={(e) => setHasExhaust(e.target.value === 'yes')}
-                  className="w-full mt-1 px-3 py-2 rounded-xl border border-border bg-background text-sm"
-                >
-                  <option value="yes">Yes, Installed</option>
-                  <option value="no">No Exhaust</option>
-                </select>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                During north Indian winter smog, high outdoor particulate levels are aggravated by indoor cooking
+                fumes (tadka), agarbatti incense, and mosquito coils. In an unvented room, these sources can easily drive
+                indoor PM2.5 past 500 µg/m³.
+              </p>
+              <div className="pt-2 text-xs font-semibold text-foreground/90 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-brand-green-600">✓</span> Evidence-based solutions for every budget tier
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-brand-green-600">✓</span> Inversion-aware ventilation timing guidance
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-brand-green-600">✓</span> Zero-cost behavioral modifications
+                </div>
               </div>
             </div>
 
-            <div>
-              <label className="text-xs font-bold text-muted-foreground uppercase">Cooking Fuel</label>
-              <select
-                value={cookingFuel}
-                onChange={(e) => setCookingFuel(e.target.value)}
-                className="w-full mt-1 px-3 py-2 rounded-xl border border-border bg-background text-sm"
-              >
-                <option value="LPG">LPG Gas Cylinder / Piped Gas</option>
-                <option value="Induction">Electric Induction</option>
-                <option value="Biomass">Biomass / Chulha (High Risk)</option>
-              </select>
-            </div>
+            {assessment && recommendations.length > 0 && (
+              <div className="p-5 rounded-2xl bg-card border border-border space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Previous Assessment Summary
+                  </h4>
+                  <button
+                    onClick={() => setActiveTab('recommendations')}
+                    className="text-xs font-bold text-brand-green-600 hover:underline"
+                  >
+                    View All {recommendations.length} Steps →
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {recommendations.slice(0, 3).map((rec) => (
+                    <div key={rec.id} className="text-xs p-2.5 rounded-xl bg-muted/40 border border-border/50">
+                      <div className="font-bold text-foreground">{rec.title}</div>
+                      <div className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{rec.recommendation}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
+      {/* TAB 2: Recommendations List */}
+      {activeTab === 'recommendations' && (
+        <div className="space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <label className="text-xs font-bold text-muted-foreground uppercase">
-                Improvement Budget
-              </label>
-              <select
-                value={budget}
-                onChange={(e) => setBudget(e.target.value)}
-                className="w-full mt-1 px-3 py-2 rounded-xl border border-border bg-background text-sm"
-              >
-                <option value="0">₹0 (Zero Cost Lifestyle Hacks)</option>
-                <option value="1000">₹1,000 (DIY Filter & Draft-Seals)</option>
-                <option value="5000">₹5,000 (Entry HEPA Purifier)</option>
-                <option value="10000+">₹10,000+ (Full Home Solution)</option>
-              </select>
+              <h2 className="text-lg font-bold text-foreground">
+                Tailored Clean Air Recommendations ({recommendations.length})
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Ranked by health urgency and cost-effectiveness based on your home setup
+              </p>
             </div>
 
             <button
-              type="submit"
-              disabled={isGenerating}
-              className="w-full py-3 rounded-xl bg-brand-green-600 hover:bg-brand-green-700 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+              onClick={() => setActiveTab('assessment')}
+              className="text-xs font-bold text-brand-green-600 hover:text-brand-green-700 flex items-center gap-1.5 bg-muted/50 px-3 py-1.5 rounded-xl border border-border"
             >
-              {isGenerating ? (
-                <>Generating Tailored Plan…</>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4" /> Create Custom Plan
-                </>
-              )}
+              <RotateCcw className="w-3.5 h-3.5" /> Re-take Assessment
             </button>
-          </form>
-        </div>
+          </div>
 
-        {/* Results / Clean Air Room Blueprint */}
-        <div className="lg:col-span-7 space-y-6">
-          {generatedPlan ? (
-            <div className="space-y-4">
-              <h2 className="text-base font-bold flex items-center gap-2">
-                <Shield className="w-5 h-5 text-brand-green-600" /> Tailored Indoor Protocol for{' '}
-                {homeType}
-              </h2>
-              <div className="space-y-3">
-                {generatedPlan.map((step, idx) => (
-                  <div
-                    key={idx}
-                    className="p-4 rounded-2xl bg-card border border-border shadow-sm flex flex-col space-y-1"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold text-foreground">
-                        {idx + 1}. {step.title}
-                      </span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-green-100 text-brand-green-800">
-                        {step.cost}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                      {step.desc}
-                    </p>
-                  </div>
-                ))}
-              </div>
+          {recommendations.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {recommendations.map((rec) => (
+                <IndoorRecommendationCard key={rec.id} recommendation={rec} />
+              ))}
             </div>
           ) : (
-            <div className="p-8 rounded-3xl bg-muted/40 border border-dashed border-border flex flex-col items-center justify-center text-center space-y-3">
-              <Home className="w-12 h-12 text-muted-foreground/60" />
-              <h3 className="font-bold text-sm">No Assessment Submitted Yet</h3>
-              <p className="text-xs text-muted-foreground max-w-sm">
-                Submit the 30-second form on the left to receive an evidence-based, budget-friendly
-                indoor purification protocol.
+            <div className="p-12 text-center rounded-3xl bg-card border border-border space-y-3">
+              <ClipboardCheck className="w-12 h-12 text-muted-foreground mx-auto" />
+              <h3 className="text-base font-bold text-foreground">No Assessment Evaluated Yet</h3>
+              <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                Complete the 1-minute home assessment form to generate an evidence-based indoor protection protocol.
               </p>
+              <button
+                onClick={() => setActiveTab('assessment')}
+                className="mt-2 px-5 py-2 rounded-xl bg-brand-green-600 text-white font-bold text-xs"
+              >
+                Start Assessment
+              </button>
             </div>
           )}
+        </div>
+      )}
 
-          {/* Clean Air Room Educational Card */}
-          <div className="p-6 rounded-3xl bg-gradient-to-br from-brand-sky-500/10 to-transparent border border-brand-sky-500/20 space-y-3">
-            <div className="flex items-center gap-2">
-              <Wrench className="w-5 h-5 text-brand-sky-600" />
-              <h3 className="text-sm font-bold">The EPA "Clean Air Room" Concept</h3>
+      {/* TAB 3: Clean Air Room Blueprint */}
+      {activeTab === 'clean-air' && cleanAirGuide && (
+        <CleanAirRoomGuideView guide={cleanAirGuide} />
+      )}
+
+      {/* TAB 4: DIY Air Purifier Guide */}
+      {activeTab === 'diy' && diyGuide && (
+        <DIYAirPurifierGuideView guide={diyGuide} />
+      )}
+
+      {/* TAB 5: Outdoor vs Indoor Comparison */}
+      {activeTab === 'comparison' && (
+        <div className="space-y-6">
+          <OutdoorVsIndoorWidget
+            outdoorAqi={285}
+            indoorHazardScore={assessment?.estimatedIndoorAqiScore ?? 45}
+            hasPurifier={assessment?.hasAirPurifier ?? false}
+            usesIncenseOrCoils={assessment?.usesIncense || assessment?.usesMosquitoCoil}
+          />
+
+          <div className="p-6 rounded-3xl bg-card border border-border space-y-4">
+            <h3 className="text-base font-bold text-foreground">Key Scientific Findings on Indoor Smog Exposure</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+              <div className="p-4 rounded-2xl bg-muted/30 border border-border/60 space-y-1">
+                <span className="font-extrabold text-foreground block">Agarbatti & Dhoop</span>
+                <p className="text-muted-foreground leading-relaxed">
+                  Generates massive fine particle concentrations (up to 400 µg/m³) and volatile benzene that settle slowly in still winter air.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-muted/30 border border-border/60 space-y-1">
+                <span className="font-extrabold text-foreground block">Morning Inversion Trapping</span>
+                <p className="text-muted-foreground leading-relaxed">
+                  Opening windows between 6 AM and 9 AM draws in cold ground-layer smog containing high industrial and traffic soot.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-muted/30 border border-border/60 space-y-1">
+                <span className="font-extrabold text-foreground block">Sanctuary Room Efficacy</span>
+                <p className="text-muted-foreground leading-relaxed">
+                  Sealing door undercuts and operating one MERV-13/HEPA unit consistently lowers bedroom PM2.5 by 75–85%.
+                </p>
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              When severe smog strikes, trying to purify an entire house with open balconies is
-              often impossible. Designate ONE bedroom as your family's Clean Air Room: seal doors,
-              keep windows latched, and concentrate filtration in that single space during peak smog
-              hours.
-            </p>
           </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

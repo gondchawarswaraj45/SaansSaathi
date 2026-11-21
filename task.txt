@@ -316,24 +316,24 @@ STEP 4 DELIVERABLES:
 
 ================================================================================
 STEP 5: INDOOR AIR QUALITY ASSISTANT
-Status: [ ] Not Started
+Status: [x] Completed
 Estimated Time: 2-3 days
 Prerequisites: Step 4 complete
 ================================================================================
 
 TASK 5.1 - Indoor Air Backend
 -------------------------------
-[ ] 5.1.1  Create IndoorAssessment entity:
+[x] 5.1.1  Create IndoorAssessment entity:
            userId, roomCount, hasAirPurifier, hasExhaustFan,
            cookingFuel (LPG/BIOMASS/ELECTRIC), windowCount,
            budget, hasChildren, hasSeniors, notes, createdAt
-[ ] 5.1.2  Create IndoorRecommendation entity (linked to assessment):
+[x] 5.1.2  Create IndoorRecommendation entity (linked to assessment):
            category, recommendation, priority, estimatedCost, source
-[ ] 5.1.3  Create IndoorAirService with:
+[x] 5.1.3  Create IndoorAirService with:
            - generateRecommendations(assessment) rule-based method
            - getCleanAirRoomGuide() method
            - getDIYAirPurifierGuide() method
-[ ] 5.1.4  Create IndoorController:
+[x] 5.1.4  Create IndoorController:
            POST /api/indoor/assessment
            GET  /api/indoor/assessment (get latest)
            GET  /api/indoor/recommendations
@@ -342,32 +342,32 @@ TASK 5.1 - Indoor Air Backend
 
 TASK 5.2 - Indoor Air Frontend
 --------------------------------
-[ ] 5.2.1  Create IndoorPage.tsx with tabs:
+[x] 5.2.1  Create IndoorPage.tsx with tabs:
            Assessment | Recommendations | Clean Air Room | DIY Guide
-[ ] 5.2.2  Create HomeAssessmentForm:
+[x] 5.2.2  Create HomeAssessmentForm:
            - Step-by-step wizard (3 steps)
            - Step 1: Home details (rooms, windows, floor)
            - Step 2: Appliances (purifier, exhaust, chimney)
            - Step 3: Habits (cooking fuel, incense, smoking, budget)
            - Progress bar between steps
-[ ] 5.2.3  Create IndoorRecommendationCard:
+[x] 5.2.3  Create IndoorRecommendationCard:
            - Category icon (cooking/ventilation/filtration/cleaning)
            - Recommendation text
            - Priority badge (High/Medium/Low)
            - Estimated cost range
            - Source citation
-[ ] 5.2.4  Create CleanAirRoomGuide component:
+[x] 5.2.4  Create CleanAirRoomGuide component:
            - Step-by-step room setup guide
            - Room selection tips
            - Checklist format (interactive checkboxes)
            - Air purifier sizing guide (by room area)
-[ ] 5.2.5  Create DIYAirPurifierGuide:
+[x] 5.2.5  Create DIYAirPurifierGuide:
            - Materials needed list
            - Step-by-step instructions
            - Safety precautions callout
            - EPA source citation
            - Effectiveness note (temporary solution only)
-[ ] 5.2.6  Add "Outdoor vs Indoor" comparison widget on IndoorPage
+[x] 5.2.6  Add "Outdoor vs Indoor" comparison widget on IndoorPage
 
 STEP 5 DELIVERABLES:
 - Assessment wizard complete
