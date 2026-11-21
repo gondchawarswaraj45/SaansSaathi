@@ -483,37 +483,37 @@ STEP 7 DELIVERABLES:
 
 ================================================================================
 STEP 8: AIR QUALITY MAP
-Status: [ ] Not Started
+Status: [x] Completed
 Estimated Time: 2-3 days
 Prerequisites: Step 3 complete
 ================================================================================
 
 TASK 8.1 - Map Backend
 ------------------------
-[ ] 8.1.1  Create MapDataController:
+[x] 8.1.1  Create MapDataController:
            GET /api/map/stations?bounds={sw_lat,sw_lng,ne_lat,ne_lng}
            GET /api/map/stations/{id}/popup (AQI popup data)
-[ ] 8.1.2  Return station lat/lng + current AQI + category + pollutants
+[x] 8.1.2  Return station lat/lng + current AQI + category + pollutants
 
 TASK 8.2 - Map Frontend (Leaflet + OpenStreetMap)
 ---------------------------------------------------
-[ ] 8.2.1  Install leaflet + react-leaflet
-[ ] 8.2.2  Create AirQualityMapPage.tsx
-[ ] 8.2.3  Create MapContainer with OpenStreetMap tiles
-[ ] 8.2.4  Create AqiMarker component (custom colored markers):
-           - Circle marker with AQI value
-           - Color matches AQI category
+[x] 8.2.1  Install leaflet + react-leaflet
+[x] 8.2.2  Create AirQualityMapPage / MapPage.tsx
+[x] 8.2.3  Create MapContainer with OpenStreetMap tiles
+[x] 8.2.4  Create AqiMarker component (custom colored markers):
+           - Circle marker with numeric AQI value
+           - Color matches CPCB AQI category (#55A630 to #6B0504)
            - Click to open popup
-[ ] 8.2.5  Create StationPopup component:
+[x] 8.2.5  Create StationPopup component:
            - Station name, AQI, category
            - PM2.5, PM10 values
            - Last updated time
            - "Set as my location" button
-[ ] 8.2.6  Add MapLegend component (color-coded AQI scale)
-[ ] 8.2.7  Add LayerControl (toggle marker types)
-[ ] 8.2.8  Add "My Location" button (GPS pin on map)
-[ ] 8.2.9  Add disclaimer: "Station observations only. Not a continuous heatmap."
-[ ] 8.2.10 Make map mobile-friendly with touch support
+[x] 8.2.6  Add MapLegend component (color-coded CPCB AQI scale)
+[x] 8.2.7  Add LayerControl & filter (city centers & risk filters)
+[x] 8.2.8  Add "Locate Me" button (GPS pin on map)
+[x] 8.2.9  Add disclaimer: "Station observations only. Not a continuous heatmap."
+[x] 8.2.10 Make map mobile-friendly with touch support
 
 STEP 8 DELIVERABLES:
 - Interactive map shows all OpenAQ stations

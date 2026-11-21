@@ -11,4 +11,6 @@ import java.util.Optional;
 public interface MonitoringStationRepository extends JpaRepository<MonitoringStation, Long> {
     List<MonitoringStation> findByCityId(Integer cityId);
     Optional<MonitoringStation> findByOpenaqId(String openaqId);
+    List<MonitoringStation> findByIsActiveTrue();
+    List<MonitoringStation> findByLatitudeBetweenAndLongitudeBetween(Double swLat, Double neLat, Double swLng, Double neLng);
 }

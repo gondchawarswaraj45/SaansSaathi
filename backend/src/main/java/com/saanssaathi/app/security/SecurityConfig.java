@@ -47,6 +47,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/air-quality/current", "/api/air-quality/stations").permitAll()
                         .requestMatchers("/api/indoor/clean-air-room", "/api/indoor/diy-purifier-guide").permitAll()
                         .requestMatchers("/api/ai/explain").permitAll()
+                        .requestMatchers("/api/map/**").permitAll()
                         // Protected endpoints
                         .anyRequest().authenticated()
                 )
