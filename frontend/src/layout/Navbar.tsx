@@ -9,13 +9,13 @@ import {
   MapPin,
   Bot,
   Trophy,
-  Bell,
   Settings,
   LogOut,
   Menu,
   X,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
+import NotificationBell from '@/components/common/NotificationBell'
 
 export default function Navbar() {
   const location = useLocation()
@@ -75,15 +75,7 @@ export default function Navbar() {
 
           {/* User Controls & Notifications */}
           <div className="flex items-center gap-2.5">
-            <Link
-              to="/notifications"
-              className="relative p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              title="Notifications"
-            >
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-aqi-poor animate-ping" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-aqi-poor" />
-            </Link>
+            <NotificationBell />
 
             <Link
               to="/settings"

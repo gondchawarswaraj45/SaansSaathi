@@ -523,40 +523,40 @@ STEP 8 DELIVERABLES:
 
 ================================================================================
 STEP 9: NOTIFICATIONS & ALERTS SYSTEM
-Status: [ ] Not Started
+Status: [x] Completed
 Estimated Time: 2 days
 Prerequisites: Step 3 complete
 ================================================================================
 
 TASK 9.1 - Notifications Backend
 ----------------------------------
-[ ] 9.1.1  Create Notification entity (userId, type, title, message, isRead, createdAt)
-[ ] 9.1.2  Create NotificationPreference entity (userId, alertTypes, emailEnabled, pushEnabled)
-[ ] 9.1.3  Create NotificationService:
+[x] 9.1.1  Create Notification entity (userId, type, title, message, isRead, createdAt)
+[x] 9.1.2  Create NotificationPreference entity (userId, alertTypes, emailEnabled, pushEnabled)
+[x] 9.1.3  Create NotificationService:
            - createAqiAlert(userId, currentAqi, threshold) method
            - createFamilyAlert(userId, memberName, risk) method
            - createMorningBriefing(userId) method
-[ ] 9.1.4  Create AqiAlertJob (Spring Scheduler):
+[x] 9.1.4  Create AqiAlertJob (Spring Scheduler):
            - Run every 30 min
            - If AQI crosses threshold for user's location -> create notification
            - Avoid duplicate alerts within 2 hours
-[ ] 9.1.5  Create NotificationController:
+[x] 9.1.5  Create NotificationController:
            GET  /api/notifications (paginated)
            PUT  /api/notifications/{id}/read
            PUT  /api/notifications/read-all
            GET  /api/notifications/preferences
            PUT  /api/notifications/preferences
-[ ] 9.1.6  Implement email notifications using JavaMailSender (optional)
+[x] 9.1.6  Implement email notifications using JavaMailSender (optional)
 
 TASK 9.2 - Notifications Frontend
 -----------------------------------
-[ ] 9.2.1  Create NotificationBell component in Navbar (with unread count badge)
-[ ] 9.2.2  Create NotificationDropdown (last 5 notifications)
-[ ] 9.2.3  Create NotificationsPage (full list, paginated)
-[ ] 9.2.4  Create NotificationCard component (icon + title + message + time + read status)
-[ ] 9.2.5  Create NotificationPreferencesPage (checkboxes for alert types)
-[ ] 9.2.6  Implement browser Push Notifications (web push API)
-[ ] 9.2.7  Auto-mark notifications as read when user opens them
+[x] 9.2.1  Create NotificationBell component in Navbar (with unread count badge)
+[x] 9.2.2  Create NotificationDropdown (last 5 notifications)
+[x] 9.2.3  Create NotificationsPage (full list, paginated)
+[x] 9.2.4  Create NotificationCard component (icon + title + message + time + read status)
+[x] 9.2.5  Create NotificationPreferencesPage (checkboxes for alert types)
+[x] 9.2.6  Implement browser Push Notifications (web push API)
+[x] 9.2.7  Auto-mark notifications as read when user opens them
 
 STEP 9 DELIVERABLES:
 - In-app notification bell with unread count

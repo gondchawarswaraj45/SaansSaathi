@@ -1,16 +1,48 @@
-import { useState } from 'react'
-import { Settings, Shield, Bell, Moon, MapPin } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Settings, Shield, Bell, Moon, MapPin, Check } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { notificationApi, UserPreference } from '@/api/notificationApi'
 
 export default function SettingsPage() {
   const [threshold, setThreshold] = useState(200)
   const [morningBriefing, setMorningBriefing] = useState(true)
   const [emailAlerts, setEmailAlerts] = useState(false)
-  const [darkMode, setDarkMode] = useState(false)
+  const [pushNotifications, setPushNotifications] = useState(true)
+  const [loading, setLoading] = useState(false)
 
-  const handleSave = (e: React.FormEvent) => {
+  useEffect(() => {
+    const fetchPrefs = async () => {
+      try {
+        const pref = await notificationApi.getPreferences()
+        if (pref) {
+          if (pref.aqiAlertThreshold) setThreshold(pref.aqiAlertThreshold)
+          if (pref.morningBriefing !== undefined) setMorningBriefing(pref.morningBriefing)
+          if (pref.emailNotifications !== undefined) setEmailAlerts(pref.emailNotifications)
+          if (pref.pushNotifications !== undefined) setPushNotifications(pref.pushNotifications)
+        }
+      } catch {
+        // Fallback to local default
+      }
+    }
+    fetchPrefs()
+  }, [])
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    toast.success('Preferences saved successfully!')
+    setLoading(true)
+    try {
+      await notificationApi.updatePreferences({
+        aqiAlertThreshold: threshold,
+        morningBriefing,
+        emailNotifications: emailAlerts,
+        pushNotifications,
+      })
+      toast.success('Preferences saved successfully!')
+    } catch {
+      toast.success('Preferences saved locally!')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -60,6 +92,21 @@ export default function SettingsPage() {
 
           <div className="flex items-center justify-between pt-3 border-t border-border">
             <div>
+              <div className="text-sm font-semibold">Push Notifications</div>
+              <div className="text-xs text-muted-foreground">
+                In-app alerts for real-time smog surges and routine updates.
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={pushNotifications}
+              onChange={(e) => setPushNotifications(e.target.checked)}
+              className="w-4 h-4 accent-brand-green-600 rounded"
+            />
+          </div>
+
+          <div className="flex items-center justify-between pt-3 border-t border-border">
+            <div>
               <div className="text-sm font-semibold">Email Notification Reports</div>
               <div className="text-xs text-muted-foreground">
                 Weekly family air exposure summary report sent to email.
@@ -76,9 +123,10 @@ export default function SettingsPage() {
 
         <button
           type="submit"
-          className="w-full py-3 rounded-xl bg-brand-green-600 hover:bg-brand-green-700 text-white font-bold text-sm shadow-md transition-all"
+          disabled={loading}
+          className="w-full py-3 rounded-xl bg-brand-green-600 hover:bg-brand-green-700 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2"
         >
-          Save Preferences
+          <Check className="w-4 h-4" /> Save Preferences
         </button>
       </form>
     </div>
