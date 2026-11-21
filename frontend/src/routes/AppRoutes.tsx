@@ -19,6 +19,9 @@ const ChallengesPage    = lazy(() => import('@/pages/ChallengesPage'))
 const NotificationsPage = lazy(() => import('@/pages/NotificationsPage'))
 const SettingsPage      = lazy(() => import('@/pages/SettingsPage'))
 const AdminPage         = lazy(() => import('@/pages/AdminPage'))
+const AboutPage         = lazy(() => import('@/pages/AboutPage'))
+const PrivacyPolicyPage = lazy(() => import('@/pages/PrivacyPolicyPage'))
+const TermsOfServicePage= lazy(() => import('@/pages/TermsOfServicePage'))
 const NotFoundPage      = lazy(() => import('@/pages/NotFoundPage'))
 
 function PageLoader() {
@@ -36,10 +39,13 @@ export default function AppRoutes() {
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
-        {/* Public Routes */}
+        {/* Public Informational Routes */}
         <Route path="/" element={<PublicRoute><LandingPage /></PublicRoute>} />
         <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms" element={<TermsOfServicePage />} />
 
         {/* Onboarding (after first login, before dashboard) */}
         <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
