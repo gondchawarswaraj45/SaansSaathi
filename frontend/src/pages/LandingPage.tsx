@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import ThemeToggle from '@/components/common/ThemeToggle'
+import WindAnimation from '@/components/common/WindAnimation'
 import { axiosClient } from '@/api/axiosClient'
+import { useAuthStore } from '@/store/authStore'
 import {
   Wind,
   Shield,
@@ -25,7 +27,11 @@ import {
   Thermometer,
   Droplets,
   X,
+  Navigation,
+  Crosshair,
   ExternalLink,
+  LogOut,
+  LayoutDashboard,
 } from 'lucide-react'
 
 interface CityData {
@@ -39,6 +45,8 @@ interface CityData {
   pm10: number
   temp: number
   humidity: number
+  lat: number
+  lng: number
   advisory: string
 }
 
@@ -54,6 +62,8 @@ const DEFAULT_CITIES: CityData[] = [
     pm10: 312.0,
     temp: 18.5,
     humidity: 68,
+    lat: 28.6469,
+    lng: 77.3164,
     advisory: 'Dense inversion layer trapping combustion exhaust. Restrict morning outdoor exertion; run indoor filtration.',
   },
   {
@@ -67,6 +77,8 @@ const DEFAULT_CITIES: CityData[] = [
     pm10: 112.0,
     temp: 24.0,
     humidity: 48,
+    lat: 18.535,
+    lng: 73.792,
     advisory: 'Breathing discomfort to sensitive groups (asthmatics, seniors). Safe for normal indoor routines.',
   },
   {
@@ -80,6 +92,8 @@ const DEFAULT_CITIES: CityData[] = [
     pm10: 138.4,
     temp: 28.2,
     humidity: 72,
+    lat: 19.0688,
+    lng: 72.8703,
     advisory: 'High coastal moisture paired with road dust. Evening workouts preferred over early morning runs.',
   },
   {
@@ -93,6 +107,8 @@ const DEFAULT_CITIES: CityData[] = [
     pm10: 215.2,
     temp: 20.1,
     humidity: 52,
+    lat: 26.9015,
+    lng: 75.8267,
     advisory: 'Prolonged outdoor exposure may cause coughing and airway irritation. Wear certified N95 for commutes.',
   },
   {
@@ -106,6 +122,8 @@ const DEFAULT_CITIES: CityData[] = [
     pm10: 55.4,
     temp: 23.5,
     humidity: 61,
+    lat: 12.9166,
+    lng: 77.6101,
     advisory: 'Satisfactory ambient air. Safe for outdoor exercise, school sports, and open-window cross ventilation.',
   },
   {
@@ -119,6 +137,8 @@ const DEFAULT_CITIES: CityData[] = [
     pm10: 230.0,
     temp: 22.8,
     humidity: 65,
+    lat: 22.5448,
+    lng: 88.3426,
     advisory: 'Winter river mist traps urban particulates. Asthmatic individuals should keep inhalers immediately accessible.',
   },
   {
@@ -132,24 +152,103 @@ const DEFAULT_CITIES: CityData[] = [
     pm10: 290.0,
     temp: 17.6,
     humidity: 70,
+    lat: 26.8500,
+    lng: 80.9333,
     advisory: 'Severe particulate concentration. Keep residential doors and windows sealed until early afternoon.',
   },
 ]
 
 export default function LandingPage() {
   const navigate = useNavigate()
+  const { isAuthenticated, user, logout } = useAuthStore()
+
   const [selectedCity, setSelectedCity] = useState<CityData>(DEFAULT_CITIES[0])
   const [loadingCity, setLoadingCity] = useState(false)
   const [lockedModalFeature, setLockedModalFeature] = useState<string | null>(null)
   const [openFaq, setOpenFaq] = useState<number | null>(0)
 
-  // Fetch real-time live telemetry when city changes
+  // Location detection states
+  const [locationStatus, setLocationStatus] = useState<
+    'PROMPT' | 'LOCATING' | 'GRANTED' | 'DENIED' | 'UNSUPPORTED'
+  >('PROMPT')
+  const [detectedCoords, setDetectedCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [showLocationBanner, setShowLocationBanner] = useState(true)
+
+  // Find closest city from coordinates
+  const findNearestCity = useCallback((lat: number, lng: number): CityData => {
+    let nearest = DEFAULT_CITIES[0]
+    let minD = Infinity
+    for (const c of DEFAULT_CITIES) {
+      const d = Math.hypot(c.lat - lat, c.lng - lng)
+      if (d < minD) {
+        minD = d
+        nearest = c
+      }
+    }
+    return nearest
+  }, [])
+
+  // Geolocation request handler
+  const requestLocation = useCallback(() => {
+    if (!('geolocation' in navigator)) {
+      setLocationStatus('UNSUPPORTED')
+      return
+    }
+
+    setLocationStatus('LOCATING')
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords
+        setDetectedCoords({ lat: latitude, lng: longitude })
+        setLocationStatus('GRANTED')
+
+        const nearest = findNearestCity(latitude, longitude)
+        setSelectedCity((prev) => ({
+          ...nearest,
+          stationName: `Local Station (Near ${nearest.city})`,
+        }))
+
+        // Call backend with exact coordinates for hyper-local reading
+        setLoadingCity(true)
+        try {
+          const res = await axiosClient.get('/air-quality/current', {
+            params: { lat: latitude, lng: longitude, city: nearest.city },
+          })
+          if (res.data?.success && res.data?.data) {
+            const d = res.data.data
+            setSelectedCity((prev) => ({
+              ...prev,
+              aqi: d.aqi ?? prev.aqi,
+              category: d.category ? d.category.replace('_', ' ') : prev.category,
+              dominantPollutant: d.dominantPollutant ?? prev.dominantPollutant,
+              stationName: d.stationName ?? prev.stationName,
+              temp: d.weather?.temperature ?? prev.temp,
+              humidity: d.weather?.humidity ?? prev.humidity,
+            }))
+          }
+        } catch {
+          // Keep baseline
+        } finally {
+          setLoadingCity(false)
+        }
+      },
+      (error) => {
+        console.warn('Geolocation access denied or timed out:', error.message)
+        setLocationStatus('DENIED')
+      },
+      { timeout: 10000, maximumAge: 300000, enableHighAccuracy: true }
+    )
+  }, [findNearestCity])
+
+  // Fetch real-time live telemetry when city changes manually
   useEffect(() => {
     let isMounted = true
     async function fetchLiveCity() {
       setLoadingCity(true)
       try {
-        const response = await axiosClient.get(`/air-quality/current?city=${encodeURIComponent(selectedCity.city)}`)
+        const response = await axiosClient.get(`/air-quality/current`, {
+          params: { city: selectedCity.city },
+        })
         if (response.data?.success && response.data?.data && isMounted) {
           const d = response.data.data
           setSelectedCity((prev) => ({
@@ -163,16 +262,19 @@ export default function LandingPage() {
           }))
         }
       } catch {
-        // Gracefully keep preset data if network or server takes a moment
+        // Gracefully keep preset data
       } finally {
         if (isMounted) setLoadingCity(false)
       }
     }
-    fetchLiveCity()
+
+    if (locationStatus !== 'GRANTED') {
+      fetchLiveCity()
+    }
     return () => {
       isMounted = false
     }
-  }, [selectedCity.city])
+  }, [selectedCity.city, locationStatus])
 
   const faqs = [
     {
@@ -202,7 +304,7 @@ export default function LandingPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased selection:bg-emerald-600 selection:text-white">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased selection:bg-emerald-600 selection:text-white relative">
       {/* Clean Navbar */}
       <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -240,28 +342,51 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-2.5">
             <ThemeToggle />
-            <Link
-              to="/login"
-              className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-700 transition-colors"
-            >
-              Sign In
-            </Link>
-            <Link
-              to="/register"
-              className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors"
-            >
-              Get Free Access
-            </Link>
+            {isAuthenticated ? (
+              <div className="flex items-center gap-2">
+                <Link
+                  to="/dashboard"
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs flex items-center gap-1.5 transition-colors"
+                >
+                  <LayoutDashboard className="w-3.5 h-3.5" /> Go to Dashboard
+                </Link>
+                <button
+                  onClick={logout}
+                  className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                  title="Sign Out"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-700 transition-colors"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  to="/register"
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors"
+                >
+                  Get Free Access
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
 
-      {/* Hero Section - Clean, Calming, No Show-Off */}
-      <section className="pt-12 pb-14 sm:pt-16 sm:pb-20 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-medium">
+      {/* Hero Section with Soothing Air Wind Animation */}
+      <section className="relative overflow-hidden pt-12 pb-14 sm:pt-18 sm:pb-22 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        {/* Air Wind Streamlines Animation Background */}
+        <WindAnimation className="opacity-60 dark:opacity-40" />
+
+        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-medium backdrop-blur-xs">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            Official CPCB Standard • Indian Winter Smog Mitigation Platform
+            Official CPCB Standard • Real-Time Winter Smog Intelligence
           </div>
 
           <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white max-w-3xl mx-auto leading-tight">
@@ -269,7 +394,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-2xl mx-auto leading-relaxed">
-            Most air quality apps just show a red number. <strong>SaansSaathi</strong> gives you practical, scientific guidance: when it is safe to open windows, how morning temperature inversion traps smog, and how to protect children and elderly family members indoors.
+            Most air quality apps just show an alarming red number. <strong>SaansSaathi</strong> translates complex atmospheric pollution into practical, scientific guidance: when it is safe to open windows, how morning inversion traps smog, and how to protect children and elderly family members.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
@@ -279,15 +404,65 @@ export default function LandingPage() {
             >
               Check City Air Quality Below <ArrowRight className="w-3.5 h-3.5" />
             </a>
-            <Link
-              to="/login"
-              className="w-full sm:w-auto px-6 py-2.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
-            >
-              Sign In for Personalized Family Routines
-            </Link>
+            {isAuthenticated ? (
+              <Link
+                to="/dashboard"
+                className="w-full sm:w-auto px-6 py-2.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
+              >
+                Open Family Dashboard
+              </Link>
+            ) : (
+              <Link
+                to="/login"
+                className="w-full sm:w-auto px-6 py-2.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
+              >
+                Sign In for Personalized Family Routines
+              </Link>
+            )}
           </div>
         </div>
       </section>
+
+      {/* LOCATION ACCESS PROMPT BANNER */}
+      {showLocationBanner && (
+        <div className="bg-emerald-50 dark:bg-emerald-950/40 border-b border-emerald-200 dark:border-emerald-800/60 px-4 py-3">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5 text-emerald-900 dark:text-emerald-200">
+              <Navigation className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>
+                <strong>Hyper-Local Air Quality:</strong> Enable device location access to detect your exact neighborhood monitoring station and get hyper-local CPCB readings.
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              {locationStatus === 'GRANTED' ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-600 text-white font-semibold text-xs">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Location Enabled
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={requestLocation}
+                  disabled={locationStatus === 'LOCATING'}
+                  className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Crosshair className={`w-3.5 h-3.5 ${locationStatus === 'LOCATING' ? 'animate-spin' : ''}`} />
+                  {locationStatus === 'LOCATING' ? 'Detecting Location…' : 'Enable My Location'}
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setShowLocationBanner(false)}
+                className="p-1 rounded-md text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
+                title="Dismiss"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* PART 1: LIMITED BASIC APPLICATION ACCESS (Unauthenticated Live AQI Checker) */}
       <section id="live-aqi" className="py-14 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
@@ -305,14 +480,32 @@ export default function LandingPage() {
             </p>
           </div>
 
-          {/* City Selection Tabs */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
+          {/* Location status badge & City Selection Tabs */}
+          <div className="flex flex-wrap items-center gap-1.5 max-w-full">
+            {/* Quick Location Trigger Button */}
+            <button
+              onClick={requestLocation}
+              disabled={locationStatus === 'LOCATING'}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                locationStatus === 'GRANTED'
+                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+              }`}
+              title="Use current GPS location"
+            >
+              <Navigation className={`w-3.5 h-3.5 text-emerald-600 ${locationStatus === 'LOCATING' ? 'animate-spin' : ''}`} />
+              {locationStatus === 'GRANTED' ? 'Using GPS' : 'Current GPS'}
+            </button>
+
             {DEFAULT_CITIES.map((c) => (
               <button
                 key={c.city}
-                onClick={() => setSelectedCity(c)}
+                onClick={() => {
+                  setLocationStatus('PROMPT')
+                  setSelectedCity(c)
+                }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
-                  selectedCity.city === c.city
+                  selectedCity.city === c.city && locationStatus !== 'GRANTED'
                     ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-semibold'
                     : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
                 }`}
@@ -349,7 +542,11 @@ export default function LandingPage() {
                   <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                   {selectedCity.stationName}
                 </p>
-                {loadingCity && <span className="text-[10px] text-emerald-600 dark:text-emerald-400 animate-pulse">Syncing live station telemetry...</span>}
+                {loadingCity && (
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 animate-pulse">
+                    Syncing live station telemetry...
+                  </span>
+                )}
               </div>
             </div>
 
@@ -567,31 +764,37 @@ export default function LandingPage() {
             <svg viewBox="0 0 500 260" className="w-full h-auto" xmlns="http://www.w3.org/2000/svg">
               {/* Room Frame */}
               <rect x="20" y="20" width="460" height="220" fill="#f8fafc" stroke="#94a3b8" strokeWidth="2" rx="8" />
-              
+
               {/* Window with Tape */}
               <rect x="40" y="50" width="60" height="80" fill="#e2e8f0" stroke="#64748b" strokeWidth="1.5" />
               <line x1="40" y1="90" x2="100" y2="90" stroke="#64748b" strokeWidth="1" />
               <line x1="70" y1="50" x2="70" y2="130" stroke="#64748b" strokeWidth="1" />
               <rect x="36" y="46" width="68" height="88" fill="none" stroke="#ef4444" strokeWidth="2" strokeDasharray="3" />
-              <text x="70" y="150" fontSize="9" fill="#dc2626" textAnchor="middle" fontWeight="bold">Window Sealing Tape</text>
+              <text x="70" y="150" fontSize="9" fill="#dc2626" textAnchor="middle" fontWeight="bold">
+                Window Sealing Tape
+              </text>
 
               {/* Door with Draft Stopper */}
               <rect x="420" y="70" width="40" height="150" fill="#cbd5e1" stroke="#475569" strokeWidth="1.5" />
               <rect x="415" y="212" width="50" height="10" fill="#f59e0b" rx="2" />
-              <text x="380" y="222" fontSize="9" fill="#d97706" textAnchor="end" fontWeight="bold">Door Draft Stopper</text>
+              <text x="380" y="222" fontSize="9" fill="#d97706" textAnchor="end" fontWeight="bold">
+                Door Draft Stopper
+              </text>
 
               {/* Box Fan HEPA Purifier in Center */}
               <rect x="210" y="110" width="80" height="80" fill="#0284c7" fillOpacity="0.2" stroke="#0284c7" strokeWidth="2" rx="6" />
               <circle cx="250" cy="150" r="28" fill="#e0f2fe" stroke="#0284c7" strokeWidth="1.5" />
-              {/* Fan Blades */}
               <path d="M250,150 L240,130 M250,150 L260,170 M250,150 L230,160 M250,150 L270,140" stroke="#0284c7" strokeWidth="3" strokeLinecap="round" />
-              {/* Filter Plate Behind */}
               <rect x="200" y="120" width="10" height="60" fill="#10b981" rx="2" />
-              <text x="250" y="85" fontSize="10" fill="#0369a1" textAnchor="middle" fontWeight="bold">DIY Box Fan + MERV-13 Filter</text>
-              <text x="250" y="205" fontSize="8" fill="#64748b" textAnchor="middle">CADR: 120-150 CFM (~88% PM2.5 capture)</text>
+              <text x="250" y="85" fontSize="10" fill="#0369a1" textAnchor="middle" fontWeight="bold">
+                DIY Box Fan + MERV-13 Filter
+              </text>
+              <text x="250" y="205" fontSize="8" fill="#64748b" textAnchor="middle">
+                CADR: 120-150 CFM (~88% PM2.5 capture)
+              </text>
 
               {/* Clean Air Arrows */}
-              <path d="M 280 135 C 320 125, 340 100, 360 100" fill="none" stroke="#10b981" strokeWidth="2" strokeDasharray="3" markerEnd="url(#arrow)" />
+              <path d="M 280 135 C 320 125, 340 100, 360 100" fill="none" stroke="#10b981" strokeWidth="2" strokeDasharray="3" />
               <path d="M 280 165 C 320 175, 340 190, 360 180" fill="none" stroke="#10b981" strokeWidth="2" strokeDasharray="3" />
             </svg>
 
@@ -698,10 +901,13 @@ export default function LandingPage() {
 
               <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
-                  onClick={() => setLockedModalFeature('Family Health Matrix')}
-                  className="w-full py-2 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 transition-colors flex items-center justify-center gap-1.5"
+                  onClick={() => {
+                    if (isAuthenticated) navigate('/family')
+                    else setLockedModalFeature('Family Health Matrix')
+                  }}
+                  className="w-full py-2 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <Lock className="w-3.5 h-3.5" /> Sign In to Profile Family
+                  <Lock className="w-3.5 h-3.5" /> {isAuthenticated ? 'Open Family Matrix' : 'Sign In to Profile Family'}
                 </button>
               </div>
             </div>
@@ -727,10 +933,13 @@ export default function LandingPage() {
 
               <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
-                  onClick={() => setLockedModalFeature('Diurnal Routine Planner')}
-                  className="w-full py-2 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 transition-colors flex items-center justify-center gap-1.5"
+                  onClick={() => {
+                    if (isAuthenticated) navigate('/planner')
+                    else setLockedModalFeature('Diurnal Routine Planner')
+                  }}
+                  className="w-full py-2 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <Lock className="w-3.5 h-3.5" /> Sign In to Plan Routines
+                  <Lock className="w-3.5 h-3.5" /> {isAuthenticated ? 'Open Routine Planner' : 'Sign In to Plan Routines'}
                 </button>
               </div>
             </div>
@@ -756,10 +965,13 @@ export default function LandingPage() {
 
               <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
-                  onClick={() => setLockedModalFeature('Clean Air Room Assessment')}
-                  className="w-full py-2 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 transition-colors flex items-center justify-center gap-1.5"
+                  onClick={() => {
+                    if (isAuthenticated) navigate('/indoor')
+                    else setLockedModalFeature('Clean Air Room Assessment')
+                  }}
+                  className="w-full py-2 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <Lock className="w-3.5 h-3.5" /> Sign In to Assess Home
+                  <Lock className="w-3.5 h-3.5" /> {isAuthenticated ? 'Open Assessment' : 'Sign In to Assess Home'}
                 </button>
               </div>
             </div>
@@ -785,10 +997,13 @@ export default function LandingPage() {
 
               <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
-                  onClick={() => setLockedModalFeature('AI Saathi Copilot')}
-                  className="w-full py-2 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 transition-colors flex items-center justify-center gap-1.5"
+                  onClick={() => {
+                    if (isAuthenticated) navigate('/chat')
+                    else setLockedModalFeature('AI Saathi Copilot')
+                  }}
+                  className="w-full py-2 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <Lock className="w-3.5 h-3.5" /> Sign In for AI Consultation
+                  <Lock className="w-3.5 h-3.5" /> {isAuthenticated ? 'Open AI Copilot' : 'Sign In for AI Consultation'}
                 </button>
               </div>
             </div>
@@ -814,10 +1029,13 @@ export default function LandingPage() {
 
               <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
-                  onClick={() => setLockedModalFeature('Geospatial Station Map')}
-                  className="w-full py-2 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 transition-colors flex items-center justify-center gap-1.5"
+                  onClick={() => {
+                    if (isAuthenticated) navigate('/map')
+                    else setLockedModalFeature('Geospatial Station Map')
+                  }}
+                  className="w-full py-2 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <Lock className="w-3.5 h-3.5" /> Sign In for Map Explorer
+                  <Lock className="w-3.5 h-3.5" /> {isAuthenticated ? 'Open Pollution Map' : 'Sign In for Map Explorer'}
                 </button>
               </div>
             </div>
@@ -843,10 +1061,13 @@ export default function LandingPage() {
 
               <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
-                  onClick={() => setLockedModalFeature('Smog Alerts & Morning Briefing')}
-                  className="w-full py-2 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 transition-colors flex items-center justify-center gap-1.5"
+                  onClick={() => {
+                    if (isAuthenticated) navigate('/notifications')
+                    else setLockedModalFeature('Smog Alerts & Morning Briefing')
+                  }}
+                  className="w-full py-2 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <Lock className="w-3.5 h-3.5" /> Sign In for Alerts
+                  <Lock className="w-3.5 h-3.5" /> {isAuthenticated ? 'Open Notifications' : 'Sign In for Alerts'}
                 </button>
               </div>
             </div>
@@ -934,7 +1155,7 @@ export default function LandingPage() {
             >
               <button
                 onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
-                className="w-full p-4 text-left font-semibold text-xs text-slate-900 dark:text-white flex items-center justify-between gap-4"
+                className="w-full p-4 text-left font-semibold text-xs text-slate-900 dark:text-white flex items-center justify-between gap-4 cursor-pointer"
               >
                 <span>{faq.q}</span>
                 {openFaq === idx ? (
@@ -963,18 +1184,29 @@ export default function LandingPage() {
             Free forever for Indian families. Access personalized routines, clean air room blueprints, and daily intelligence in under a minute.
           </p>
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link
-              to="/register"
-              className="w-full sm:w-auto px-6 py-2 rounded-lg text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-white transition-colors"
-            >
-              Create Free Account
-            </Link>
-            <Link
-              to="/login"
-              className="w-full sm:w-auto px-6 py-2 rounded-lg text-xs font-semibold border border-slate-700 hover:bg-slate-800 text-slate-200 transition-colors"
-            >
-              Sign In with Existing Account
-            </Link>
+            {isAuthenticated ? (
+              <Link
+                to="/dashboard"
+                className="w-full sm:w-auto px-6 py-2 rounded-lg text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-white transition-colors"
+              >
+                Open Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link
+                  to="/register"
+                  className="w-full sm:w-auto px-6 py-2 rounded-lg text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-white transition-colors"
+                >
+                  Create Free Account
+                </Link>
+                <Link
+                  to="/login"
+                  className="w-full sm:w-auto px-6 py-2 rounded-lg text-xs font-semibold border border-slate-700 hover:bg-slate-800 text-slate-200 transition-colors"
+                >
+                  Sign In with Existing Account
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </section>
@@ -1050,7 +1282,7 @@ export default function LandingPage() {
                   setLockedModalFeature(null)
                   navigate('/login')
                 }}
-                className="flex-1 py-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors"
+                className="flex-1 py-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer"
               >
                 Sign In Now
               </button>
@@ -1059,7 +1291,7 @@ export default function LandingPage() {
                   setLockedModalFeature(null)
                   navigate('/register')
                 }}
-                className="flex-1 py-2 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
+                className="flex-1 py-2 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
               >
                 Create Account
               </button>
