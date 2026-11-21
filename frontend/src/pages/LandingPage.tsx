@@ -1,516 +1,950 @@
 import React, { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import ThemeToggle from '@/components/common/ThemeToggle'
+import { axiosClient } from '@/api/axiosClient'
 import {
   Wind,
-  ShieldCheck,
-  Home,
+  Shield,
+  ShieldAlert,
   Users,
-  Compass,
-  Sparkles,
-  ArrowRight,
-  CheckCircle,
-  AlertTriangle,
-  ChevronDown,
-  ChevronUp,
+  Home,
+  Calendar,
   MapPin,
   Bot,
-  Trophy,
-  Flame,
+  Bell,
+  Lock,
+  ArrowRight,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  AlertTriangle,
+  Info,
   Sun,
-  ShieldAlert,
-  HelpCircle,
+  Activity,
+  Layers,
+  Thermometer,
+  Droplets,
+  X,
   ExternalLink,
-  HeartPulse,
 } from 'lucide-react'
 
-interface CityPreview {
+interface CityData {
   city: string
-  station: string
+  stationName: string
   aqi: number
   category: string
   color: string
+  dominantPollutant: string
   pm25: number
   pm10: number
-  dominant: string
+  temp: number
+  humidity: number
   advisory: string
 }
 
-const CITY_PREVIEWS: CityPreview[] = [
+const DEFAULT_CITIES: CityData[] = [
   {
-    city: 'Delhi',
-    station: 'Anand Vihar, Delhi',
+    city: 'Delhi NCR',
+    stationName: 'Anand Vihar, Delhi',
     aqi: 342,
     category: 'Very Poor',
     color: '#D90429',
+    dominantPollutant: 'PM2.5',
     pm25: 195.4,
     pm10: 312.0,
-    dominant: 'PM2.5',
-    advisory: 'Severe winter inversion trapped particulate matter. Limit outdoor cardio and seal doors.',
+    temp: 18.5,
+    humidity: 68,
+    advisory: 'Dense inversion layer trapping combustion exhaust. Restrict morning outdoor exertion; run indoor filtration.',
   },
   {
     city: 'Pune',
-    station: 'Bavdhan / Pashan, Pune',
+    stationName: 'Bavdhan / Pashan, Pune',
     aqi: 145,
     category: 'Moderate',
     color: '#FFB703',
+    dominantPollutant: 'PM2.5',
     pm25: 58.2,
     pm10: 112.0,
-    dominant: 'PM2.5',
-    advisory: 'Sensitive individuals and children should reduce prolonged strenuous outdoor exertion.',
+    temp: 24.0,
+    humidity: 48,
+    advisory: 'Breathing discomfort to sensitive groups (asthmatics, seniors). Safe for normal indoor routines.',
   },
   {
     city: 'Mumbai',
-    station: 'Bandra Kurla Complex, Mumbai',
+    stationName: 'Bandra Kurla Complex, Mumbai',
     aqi: 182,
     category: 'Moderate',
     color: '#FFB703',
+    dominantPollutant: 'PM10',
     pm25: 72.8,
     pm10: 138.4,
-    dominant: 'PM10',
-    advisory: 'Coastal humidity with road dust. Evening workouts preferred over early morning runs.',
+    temp: 28.2,
+    humidity: 72,
+    advisory: 'High coastal moisture paired with road dust. Evening workouts preferred over early morning runs.',
   },
   {
     city: 'Jaipur',
-    station: 'Adarsh Nagar, Jaipur',
+    stationName: 'Adarsh Nagar, Jaipur',
     aqi: 228,
     category: 'Poor',
     color: '#FB8500',
+    dominantPollutant: 'PM2.5',
     pm25: 104.0,
     pm10: 215.2,
-    dominant: 'PM2.5',
-    advisory: 'Breathing discomfort on prolonged exposure. Wear N95 respirator during commute.',
+    temp: 20.1,
+    humidity: 52,
+    advisory: 'Prolonged outdoor exposure may cause coughing and airway irritation. Wear certified N95 for commutes.',
   },
   {
     city: 'Bengaluru',
-    station: 'BTM Layout, Bengaluru',
+    stationName: 'BTM Layout, Bengaluru',
     aqi: 68,
     category: 'Satisfactory',
     color: '#80B918',
+    dominantPollutant: 'PM10',
     pm25: 22.0,
     pm10: 55.4,
-    dominant: 'PM10',
-    advisory: 'Clean air quality. Safe for all outdoor activities, workouts, and natural home ventilation.',
+    temp: 23.5,
+    humidity: 61,
+    advisory: 'Satisfactory ambient air. Safe for outdoor exercise, school sports, and open-window cross ventilation.',
+  },
+  {
+    city: 'Kolkata',
+    stationName: 'Victoria Memorial, Kolkata',
+    aqi: 265,
+    category: 'Poor',
+    color: '#FB8500',
+    dominantPollutant: 'PM2.5',
+    pm25: 118.5,
+    pm10: 230.0,
+    temp: 22.8,
+    humidity: 65,
+    advisory: 'Winter river mist traps urban particulates. Asthmatic individuals should keep inhalers immediately accessible.',
+  },
+  {
+    city: 'Lucknow',
+    stationName: 'Lalbagh, Lucknow',
+    aqi: 310,
+    category: 'Very Poor',
+    color: '#D90429',
+    dominantPollutant: 'PM2.5',
+    pm25: 172.0,
+    pm10: 290.0,
+    temp: 17.6,
+    humidity: 70,
+    advisory: 'Severe particulate concentration. Keep residential doors and windows sealed until early afternoon.',
   },
 ]
 
 export default function LandingPage() {
-  const [selectedCityIndex, setSelectedCityIndex] = useState(0)
-  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0)
+  const navigate = useNavigate()
+  const [selectedCity, setSelectedCity] = useState<CityData>(DEFAULT_CITIES[0])
+  const [loadingCity, setLoadingCity] = useState(false)
+  const [lockedModalFeature, setLockedModalFeature] = useState<string | null>(null)
+  const [openFaq, setOpenFaq] = useState<number | null>(0)
 
-  const currentPreview = CITY_PREVIEWS[selectedCityIndex]
+  // Fetch real-time live telemetry when city changes
+  useEffect(() => {
+    let isMounted = true
+    async function fetchLiveCity() {
+      setLoadingCity(true)
+      try {
+        const response = await axiosClient.get(`/air-quality/current?city=${encodeURIComponent(selectedCity.city)}`)
+        if (response.data?.success && response.data?.data && isMounted) {
+          const d = response.data.data
+          setSelectedCity((prev) => ({
+            ...prev,
+            aqi: d.aqi ?? prev.aqi,
+            category: d.category ? d.category.replace('_', ' ') : prev.category,
+            dominantPollutant: d.dominantPollutant ?? prev.dominantPollutant,
+            stationName: d.stationName ?? prev.stationName,
+            temp: d.weather?.temperature ?? prev.temp,
+            humidity: d.weather?.humidity ?? prev.humidity,
+          }))
+        }
+      } catch {
+        // Gracefully keep preset data if network or server takes a moment
+      } finally {
+        if (isMounted) setLoadingCity(false)
+      }
+    }
+    fetchLiveCity()
+    return () => {
+      isMounted = false
+    }
+  }, [selectedCity.city])
 
   const faqs = [
     {
-      q: 'Why is winter smog in Indian cities so much more dangerous than summer pollution?',
-      a: 'During winter, radiative cooling creates atmospheric temperature inversion: a cold air layer near the ground is trapped under warm air, preventing vertical dispersion. Emissions from vehicles, road dust, and biomass burning accumulate at breathing height, causing severe particulate spikes between 6:00 AM and 10:00 AM.',
+      q: 'Why is winter smog in Indian cities significantly more dangerous than summer pollution?',
+      a: 'During winter, nocturnal radiative cooling creates atmospheric temperature inversion: a cold, dense air layer near the ground is trapped under warm air aloft. This forms an atmospheric lid under 150 meters that prevents vertical dispersion. Emissions from vehicles, dust, and biomass accumulate directly at breathing height, peaking between 6:00 AM and 10:00 AM.',
     },
     {
       q: 'How does SaansSaathi calculate the Air Quality Index (AQI)?',
-      a: 'We strictly follow the official Central Pollution Control Board (CPCB) sub-index piecewise linear interpolation standard across 6 pollutants (PM2.5, PM10, NO2, SO2, CO, and O3). The overall AQI corresponds to the highest sub-index with its dominant pollutant clearly identified.',
+      a: 'We strictly follow the official Central Pollution Control Board (CPCB) National Air Quality Index (NAQI) formula using piecewise sub-index linear interpolation across 8 criteria pollutants (PM2.5, PM10, NO2, SO2, CO, O3, NH3, and Pb). The final reported AQI represents the highest individual sub-index.',
     },
     {
-      q: 'How does family personalization work?',
-      a: 'Different family members have distinct physiological vulnerability thresholds. SaansSaathi tailors risk alerts specifically for school-aged children (higher respiratory rates), senior citizens (cardiopulmonary sensitivity), and individuals with asthma or COPD, rather than generic broad advisories.',
+      q: 'How does family vulnerability profiling work when I log in?',
+      a: 'Children breathe 50% more air per kilogram of body weight than adults, while seniors and asthmatics suffer acute cardiovascular and airway constriction. When you log in and register family members, SaansSaathi calculates customized risk thresholds and medication reminders instead of one-size-fits-all generic warnings.',
     },
     {
-      q: 'Can I really build an effective DIY air cleaner for under ₹1,500?',
-      a: 'Yes! Tested extensively by the US EPA and aerosol scientists (Corsi-Rosenthal Box principle), a standard domestic 230V box fan or exhaust tightly sealed to a MERV-13 or true HEPA filter removes over 85–90% of airborne PM2.5 particles at a fraction of the cost of commercial purifiers.',
+      q: 'Can I really build an effective DIY air purifier for under ₹1,500?',
+      a: 'Yes. Based on the proven Corsi-Rosenthal scientific principle validated by the US EPA, a standard 230V domestic box fan or exhaust tightly taped to a genuine MERV-13 or HEPA filter removes over 85–90% of airborne PM2.5 particulates in a 150 sq.ft room within 45 minutes.',
     },
     {
       q: 'When is the safest time to ventilate the home in winter?',
-      a: 'Between 1:00 PM and 3:30 PM. Solar heating breaks the night-time inversion boundary layer, accelerating atmospheric mixing and dropping ground PM2.5 to its daily minimum before evening traffic and cooling set in.',
+      a: 'Between 1:00 PM and 3:30 PM. Solar heating breaks the night-time surface inversion boundary layer, accelerating atmospheric mixing and lowering ground PM2.5 concentrations to their daily minimum before evening cooling sets in.',
     },
     {
       q: 'Do surgical or cloth masks protect against severe winter smog?',
-      a: 'No. Fine PM2.5 particles measure less than 2.5 microns and easily pass through porous cloth and loose-fitting surgical masks. Only certified, well-fitted N95, N99, or FFP2 respirators effectively filter sub-micron particles.',
-    },
-    {
-      q: 'Does the AI Saathi chatbot give medical prescriptions?',
-      a: 'Never. SaansSaathi has hardcoded medical safety guardrails. It provides preventive lifestyle, commuting, and indoor exposure reduction guidance based on CPCB and WHO guidelines. It immediately directs users exhibiting acute respiratory distress to emergency medical care.',
-    },
-    {
-      q: 'Is SaansSaathi free and open source?',
-      a: 'Yes! SaansSaathi is completely open-source under the MIT license, utilizing open public data from CPCB, OpenAQ, and Open-Meteo.',
+      a: 'No. Fine PM2.5 particulates measure less than 2.5 microns—roughly 30 times smaller than a strand of human hair. They easily bypass porous cloth and loose-fitting surgical masks. Only certified, securely fitted N95, N99, or FFP2 respirators provide adequate filtration.',
     },
   ]
 
-  const toggleFaq = (index: number) => {
-    setOpenFaqIndex(openFaqIndex === index ? null : index)
-  }
-
   return (
-    <div className="min-h-screen bg-background text-foreground selection:bg-brand-green-500 selection:text-white">
-      {/* Top Navbar */}
-      <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-border">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased selection:bg-emerald-600 selection:text-white">
+      {/* Clean Navbar */}
+      <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-green-700 to-brand-green-500 flex items-center justify-center text-white shadow-md shadow-brand-green-700/20">
-              <Wind className="w-6 h-6 animate-pulse" />
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-xs">
+              <Wind className="w-5 h-5" />
             </div>
             <div>
-              <span className="font-bold text-xl tracking-tight text-brand-green-800 dark:text-brand-green-400">
-                Saans<span className="text-brand-sky-500">Saathi</span>
+              <span className="font-bold text-lg tracking-tight text-slate-900 dark:text-white">
+                Saans<span className="text-emerald-600 dark:text-emerald-400">Saathi</span>
               </span>
-              <p className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider hidden sm:block">
-                Breathe Better • Live Smarter
-              </p>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 hidden sm:inline ml-2 border-l border-slate-300 dark:border-slate-700 pl-2">
+                Urban Air Quality & Family Health
+              </span>
             </div>
           </div>
 
-          <nav className="hidden md:flex items-center gap-6 text-xs font-semibold text-muted-foreground">
-            <a href="#preview" className="hover:text-foreground transition-colors">Live AQI</a>
-            <a href="#how-it-works" className="hover:text-foreground transition-colors">How It Works</a>
-            <a href="#features" className="hover:text-foreground transition-colors">Features</a>
-            <a href="#smog-inversion" className="hover:text-foreground transition-colors">Winter Smog</a>
-            <a href="#faq" className="hover:text-foreground transition-colors">FAQ</a>
-            <Link to="/about" className="hover:text-foreground transition-colors">About</Link>
+          <nav className="hidden md:flex items-center gap-6 text-xs font-medium text-slate-600 dark:text-slate-300">
+            <a href="#live-aqi" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
+              Check AQI
+            </a>
+            <a href="#inversion-science" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
+              How Smog Works
+            </a>
+            <a href="#clean-air-refuge" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
+              Indoor Refuge Guide
+            </a>
+            <a href="#member-features" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
+              Personalized Protection
+            </a>
+            <a href="#faq" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
+              FAQ
+            </a>
           </nav>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <ThemeToggle />
             <Link
               to="/login"
-              className="px-3.5 py-2 rounded-xl text-xs font-bold text-brand-green-700 dark:text-brand-green-400 hover:bg-brand-green-50 dark:hover:bg-brand-green-950 transition-colors"
+              className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-700 transition-colors"
             >
               Sign In
             </Link>
             <Link
               to="/register"
-              className="px-4 py-2 rounded-xl text-xs font-bold bg-brand-green-600 hover:bg-brand-green-700 text-white shadow-md shadow-brand-green-600/20 transition-all hover:scale-105"
+              className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors"
             >
-              Get Started Free
+              Get Free Access
             </Link>
           </div>
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section className="relative overflow-hidden pt-12 pb-20 md:pt-20 md:pb-28">
-        <div className="absolute inset-0 bg-gradient-to-b from-brand-green-50/50 via-transparent to-transparent dark:from-brand-green-950/20 -z-10" />
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-green-100/80 dark:bg-brand-green-950 text-brand-green-800 dark:text-brand-green-300 text-xs font-bold uppercase tracking-wider shadow-xs animate-in fade-in">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            AI-Powered Urban Air Quality & Family Health Platform
+      {/* Hero Section - Clean, Calming, No Show-Off */}
+      <section className="pt-12 pb-14 sm:pt-16 sm:pb-20 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-medium">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            Official CPCB Standard • Indian Winter Smog Mitigation Platform
           </div>
 
-          <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight max-w-4xl mx-auto leading-[1.15]">
-            Breathe Better.{' '}
-            <span className="bg-gradient-to-r from-brand-green-700 via-brand-green-500 to-brand-sky-500 bg-clip-text text-transparent">
-              Protect Your Family
-            </span>{' '}
-            from Severe Winter Smog.
+          <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white max-w-3xl mx-auto leading-tight">
+            Clear air intelligence for your family, without the panic.
           </h1>
 
-          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Standard AQI apps only show numbers. <strong>SaansSaathi</strong> translates real-time Indian urban pollution into personalized family protection, diurnal inversion routines, and affordable indoor clean air hacks.
+          <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-2xl mx-auto leading-relaxed">
+            Most air quality apps just show a red number. <strong>SaansSaathi</strong> gives you practical, scientific guidance: when it is safe to open windows, how morning temperature inversion traps smog, and how to protect children and elderly family members indoors.
           </p>
 
-          <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link
-              to="/dashboard"
-              className="w-full sm:w-auto px-8 py-3.5 rounded-xl font-bold text-sm bg-brand-green-600 hover:bg-brand-green-700 text-white shadow-lg shadow-brand-green-600/25 flex items-center justify-center gap-2 transition-all hover:scale-[1.02]"
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+            <a
+              href="#live-aqi"
+              className="w-full sm:w-auto px-6 py-2.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs flex items-center justify-center gap-2 transition-colors"
             >
-              Explore Live Dashboard <ArrowRight className="w-4 h-4" />
-            </Link>
+              Check City Air Quality Below <ArrowRight className="w-3.5 h-3.5" />
+            </a>
             <Link
-              to="/register"
-              className="w-full sm:w-auto px-8 py-3.5 rounded-xl font-bold text-sm border border-border bg-card hover:bg-muted text-foreground transition-all"
+              to="/login"
+              className="w-full sm:w-auto px-6 py-2.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
             >
-              Create Family Profile
+              Sign In for Personalized Family Routines
             </Link>
           </div>
-
-          {/* Live Preview Widget */}
-          <div id="preview" className="pt-12 max-w-3xl mx-auto text-left">
-            <div className="p-6 sm:p-8 rounded-3xl bg-card border border-border shadow-xl space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border">
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-brand-green-600" />
-                  <div>
-                    <h3 className="font-bold text-base text-foreground">Live Ambient Air Telemetry</h3>
-                    <p className="text-xs text-muted-foreground">Select a city to preview CPCB sub-index calculations</p>
-                  </div>
-                </div>
-
-                {/* City Pills */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-                  {CITY_PREVIEWS.map((item, idx) => (
-                    <button
-                      key={item.city}
-                      onClick={() => setSelectedCityIndex(idx)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-                        selectedCityIndex === idx
-                          ? 'bg-brand-green-600 text-white shadow-xs'
-                          : 'bg-muted text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {item.city}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Station AQI Display */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 items-center">
-                <div className="flex items-center gap-4">
-                  <div
-                    className="w-20 h-20 rounded-2xl flex flex-col items-center justify-center text-white shadow-lg shrink-0 font-extrabold"
-                    style={{ backgroundColor: currentPreview.color }}
-                  >
-                    <span className="text-2xl leading-none">{currentPreview.aqi}</span>
-                    <span className="text-[10px] tracking-wider uppercase mt-1 opacity-90">AQI</span>
-                  </div>
-                  <div>
-                    <span
-                      className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider inline-block text-white"
-                      style={{ backgroundColor: currentPreview.color }}
-                    >
-                      {currentPreview.category}
-                    </span>
-                    <h4 className="font-bold text-sm text-foreground mt-1.5 leading-snug">
-                      {currentPreview.station}
-                    </h4>
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-2xl bg-muted/40 border border-border space-y-1 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">PM2.5 (Fine Soot):</span>
-                    <span className="font-bold text-foreground">{currentPreview.pm25} µg/m³</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">PM10 (Inhalable Dust):</span>
-                    <span className="font-bold text-foreground">{currentPreview.pm10} µg/m³</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Dominant Pollutant:</span>
-                    <span className="font-bold text-brand-green-600 dark:text-brand-green-400">
-                      {currentPreview.dominant}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs space-y-1">
-                  <span className="font-bold text-amber-900 dark:text-amber-200 block">
-                    Immediate Health Action:
-                  </span>
-                  <p className="text-muted-foreground leading-relaxed text-[11px]">
-                    {currentPreview.advisory}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 
-      {/* How It Works (The 3 Pillars) */}
-      <section id="how-it-works" className="py-20 bg-muted/20 border-y border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-          <div className="text-center space-y-2 max-w-2xl mx-auto">
-            <span className="text-xs font-bold uppercase tracking-widest text-brand-green-600 bg-brand-green-50 dark:bg-brand-green-950 px-3 py-1 rounded-full border border-brand-green-200 dark:border-brand-green-900">
-              The Three Pillars
-            </span>
-            <h2 className="text-3xl font-extrabold tracking-tight">How SaansSaathi Protects Your Family</h2>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Moving beyond passive statistics to active daily prevention.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="p-8 rounded-3xl bg-card border border-border shadow-sm space-y-4 relative">
-              <span className="text-5xl font-black text-brand-green-600/15 absolute top-6 right-6">01</span>
-              <div className="w-12 h-12 rounded-2xl bg-brand-green-100 dark:bg-brand-green-950 text-brand-green-700 flex items-center justify-center font-bold">
-                <Wind className="w-6 h-6" />
-              </div>
-              <h3 className="text-xl font-bold text-foreground">1. Monitor</h3>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Continuous telemetry from OpenAQ & CPCB monitoring networks. Calculates official Indian National AQI using piecewise sub-index linear interpolation for all 6 key pollutants.
-              </p>
+      {/* PART 1: LIMITED BASIC APPLICATION ACCESS (Unauthenticated Live AQI Checker) */}
+      <section id="live-aqi" className="py-14 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mb-1">
+              <Activity className="w-4 h-4" />
+              Public Telemetry Access
             </div>
-
-            <div className="p-8 rounded-3xl bg-card border border-border shadow-sm space-y-4 relative">
-              <span className="text-5xl font-black text-amber-500/15 absolute top-6 right-6">02</span>
-              <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950 text-amber-600 flex items-center justify-center font-bold">
-                <Users className="w-6 h-6" />
-              </div>
-              <h3 className="text-xl font-bold text-foreground">2. Protect</h3>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Tailored health risk calculations based on family member age groups (infants, school children, adults, seniors) and underlying respiratory or cardiovascular health profiles.
-              </p>
-            </div>
-
-            <div className="p-8 rounded-3xl bg-card border border-border shadow-sm space-y-4 relative">
-              <span className="text-5xl font-black text-sky-500/15 absolute top-6 right-6">03</span>
-              <div className="w-12 h-12 rounded-2xl bg-sky-100 dark:bg-sky-950 text-sky-600 flex items-center justify-center font-bold">
-                <Home className="w-6 h-6" />
-              </div>
-              <h3 className="text-xl font-bold text-foreground">3. Improve</h3>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Actionable low-cost indoor interventions: Clean Air Room blueprints, DIY ₹1,500 HEPA purifiers, and community habit challenges to reduce city-wide emissions.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features Grid */}
-      <section id="features" className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-        <div className="text-center space-y-2 max-w-2xl mx-auto">
-          <span className="text-xs font-bold uppercase tracking-widest text-brand-green-600">Feature Matrix</span>
-          <h2 className="text-3xl font-extrabold tracking-tight">Everything You Need to Beat Winter Smog</h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div className="p-6 rounded-3xl bg-card border border-border shadow-sm space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-brand-green-100 dark:bg-brand-green-950 text-brand-green-700 flex items-center justify-center">
-              <Compass className="w-5 h-5" />
-            </div>
-            <h3 className="font-bold text-base">CPCB Linear Interpolation</h3>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Calculates precise sub-indices according to Central Pollution Control Board guidelines with dominant pollutant identification.
-            </p>
-          </div>
-
-          <div className="p-6 rounded-3xl bg-card border border-border shadow-sm space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-600 flex items-center justify-center">
-              <Users className="w-5 h-5" />
-            </div>
-            <h3 className="font-bold text-base">Family Risk Profiling</h3>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Custom advisories for children, pregnant women, asthmatics, and seniors. Protects against permanent lung capacity reduction.
-            </p>
-          </div>
-
-          <div className="p-6 rounded-3xl bg-card border border-border shadow-sm space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center">
-              <Home className="w-5 h-5" />
-            </div>
-            <h3 className="font-bold text-base">Clean Air Room Blueprint</h3>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Convert an interior bedroom into a safe refuge with negative pressure seals and affordable DIY box-fan filtration.
-            </p>
-          </div>
-
-          <div className="p-6 rounded-3xl bg-card border border-border shadow-sm space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-sky-100 dark:bg-sky-950 text-sky-600 flex items-center justify-center">
-              <Sun className="w-5 h-5" />
-            </div>
-            <h3 className="font-bold text-base">Diurnal Routine Planner</h3>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Shifts morning outdoor cardio indoors and highlights the 1:00 PM – 3:30 PM optimal solar ventilation window.
-            </p>
-          </div>
-
-          <div className="p-6 rounded-3xl bg-card border border-border shadow-sm space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-600 flex items-center justify-center">
-              <Bot className="w-5 h-5" />
-            </div>
-            <h3 className="font-bold text-base">AI Saathi (Gemini Copilot)</h3>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Enriched with live station AQI, family profiles, and residential survey data, backed by strict medical safety boundaries.
-            </p>
-          </div>
-
-          <div className="p-6 rounded-3xl bg-card border border-border shadow-sm space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-950 text-rose-600 flex items-center justify-center">
-              <Trophy className="w-5 h-5" />
-            </div>
-            <h3 className="font-bold text-base">Community Challenges</h3>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              10 structured low-emission challenges: No-Idling, Damp Mopping, and Smoke-Free Sanctuary to unlock badges and earn points.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Atmospheric Inversion Explanation */}
-      <section id="smog-inversion" className="py-20 bg-gradient-to-r from-slate-900 to-brand-green-950 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-          <div className="space-y-4">
-            <span className="text-xs font-bold uppercase tracking-widest text-amber-400">Scientific Context</span>
-            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight">
-              Why 6:00 AM Jogging During Winter Smog Causes Severe Lung Damage
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+              Live Air Quality Checker for Indian Cities
             </h2>
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              In summer, solar radiation heats the ground, causing air to rise and disperse pollutants. In Indian winter, rapid overnight radiational cooling creates a cold ground layer trapped beneath a warmer ceiling.
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Instant ambient telemetry calculated with CPCB sub-index linear interpolation formula.
             </p>
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              This atmospheric inversion traps exhaust fumes, construction dust, and burning biomass within the bottom 100 meters. Exercising during this window forces 40–60 liters of toxic air per minute deep into bronchioles.
-            </p>
-            <div className="pt-2">
-              <Link
-                to="/planner"
-                className="inline-flex items-center gap-2 text-xs font-bold text-brand-green-300 hover:text-white underline"
+          </div>
+
+          {/* City Selection Tabs */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
+            {DEFAULT_CITIES.map((c) => (
+              <button
+                key={c.city}
+                onClick={() => setSelectedCity(c)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+                  selectedCity.city === c.city
+                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-semibold'
+                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                }`}
               >
-                Learn how SaansSaathi re-schedules routines <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
+                {c.city}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Live Telemetry Display Card */}
+        <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+            {/* Primary Gauge */}
+            <div className="lg:col-span-4 flex items-center gap-5">
+              <div
+                className="w-24 h-24 rounded-2xl flex flex-col items-center justify-center text-white shrink-0 font-mono shadow-xs"
+                style={{ backgroundColor: selectedCity.color }}
+              >
+                <span className="text-3xl font-extrabold leading-none">{selectedCity.aqi}</span>
+                <span className="text-[10px] tracking-wider uppercase mt-1 font-sans opacity-90">CPCB AQI</span>
+              </div>
+              <div className="space-y-1">
+                <span
+                  className="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider text-white inline-block"
+                  style={{ backgroundColor: selectedCity.color }}
+                >
+                  {selectedCity.category}
+                </span>
+                <h3 className="font-bold text-base text-slate-900 dark:text-white leading-snug">
+                  {selectedCity.city}
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  {selectedCity.stationName}
+                </p>
+                {loadingCity && <span className="text-[10px] text-emerald-600 dark:text-emerald-400 animate-pulse">Syncing live station telemetry...</span>}
+              </div>
+            </div>
+
+            {/* Pollutants & Weather Sub-Indices */}
+            <div className="lg:col-span-4 grid grid-cols-2 gap-3 text-xs">
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 space-y-0.5">
+                <span className="text-slate-500 dark:text-slate-400 text-[11px]">PM2.5 (Fine Soot)</span>
+                <div className="font-mono font-bold text-slate-900 dark:text-white text-sm">
+                  {selectedCity.pm25} <span className="text-[10px] font-normal text-slate-500">µg/m³</span>
+                </div>
+                <span className="text-[10px] text-slate-400">Safe Limit: 60 µg/m³</span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 space-y-0.5">
+                <span className="text-slate-500 dark:text-slate-400 text-[11px]">PM10 (Coarse Dust)</span>
+                <div className="font-mono font-bold text-slate-900 dark:text-white text-sm">
+                  {selectedCity.pm10} <span className="text-[10px] font-normal text-slate-500">µg/m³</span>
+                </div>
+                <span className="text-[10px] text-slate-400">Safe Limit: 100 µg/m³</span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 space-y-0.5">
+                <span className="text-slate-500 dark:text-slate-400 text-[11px] flex items-center gap-1">
+                  <Thermometer className="w-3 h-3" /> Temperature
+                </span>
+                <div className="font-mono font-bold text-slate-900 dark:text-white text-sm">
+                  {selectedCity.temp} °C
+                </div>
+                <span className="text-[10px] text-slate-400">Surface Air</span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 space-y-0.5">
+                <span className="text-slate-500 dark:text-slate-400 text-[11px] flex items-center gap-1">
+                  <Droplets className="w-3 h-3" /> Humidity
+                </span>
+                <div className="font-mono font-bold text-slate-900 dark:text-white text-sm">
+                  {selectedCity.humidity} %
+                </div>
+                <span className="text-[10px] text-slate-400">Fog condensation</span>
+              </div>
+            </div>
+
+            {/* General Health Action */}
+            <div className="lg:col-span-4 p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 text-xs space-y-2">
+              <div className="flex items-center gap-2 font-bold text-amber-900 dark:text-amber-200">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                General Public Guidance
+              </div>
+              <p className="text-slate-700 dark:text-slate-300 leading-relaxed text-[11px]">
+                {selectedCity.advisory}
+              </p>
+              <div className="pt-1 border-t border-amber-200/60 dark:border-amber-900/40 flex items-center justify-between text-[10px] text-amber-800 dark:text-amber-300">
+                <span>Dominant: <strong>{selectedCity.dominantPollutant}</strong></span>
+                <span>Sub-index: <strong>{selectedCity.aqi}</strong></span>
+              </div>
             </div>
           </div>
 
-          <div className="p-6 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-white/10">
-              <span className="font-bold text-sm text-amber-300">Daily Diurnal Smog Cycle</span>
-              <span className="text-[10px] text-slate-400 uppercase font-semibold">Indian Urban Winter</span>
+          {/* Limited Access Notice Bar */}
+          <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+              <Info className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>
+                <strong>Limited public preview.</strong> Sign in to view granular station maps, historical 24-hr curves, and member-specific sensitivity thresholds.
+              </span>
+            </div>
+            <Link
+              to="/login"
+              className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:underline shrink-0 flex items-center gap-1"
+            >
+              Sign In for Full Telemetry <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* PART 2: SCIENTIFIC EXPLANATION WITH CLEAN DIAGRAMS */}
+      <section id="inversion-science" className="py-14 bg-white dark:bg-slate-900 border-y border-slate-200 dark:border-slate-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+          <div className="max-w-3xl space-y-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+              Scientific Principles
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
+              Why Winter Smog Peaks in the Morning: Atmospheric Inversion
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+              In summer, the sun heats the ground, causing warm air to rise and carry pollutants high into the atmosphere. In North Indian winters, overnight ground cooling creates a stable cold air layer trapped beneath a warmer ceiling.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+            {/* Clean SVG Diagram: Temperature Inversion */}
+            <div className="lg:col-span-7 p-6 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-4">
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300 pb-2 border-b border-slate-200 dark:border-slate-800">
+                <span>Atmospheric Cross-Section (Winter Night vs Noon)</span>
+                <span className="text-[10px] text-slate-400">Planetary Boundary Layer</span>
+              </div>
+
+              {/* Vector Illustration */}
+              <svg viewBox="0 0 600 240" className="w-full h-auto" xmlns="http://www.w3.org/2000/svg">
+                {/* Background Sky */}
+                <rect x="0" y="0" width="600" height="240" fill="#0f172a" rx="12" />
+
+                {/* Warm Inversion Lid */}
+                <rect x="20" y="30" width="560" height="40" fill="#f59e0b" fillOpacity="0.25" rx="6" />
+                <text x="300" y="55" fill="#fef3c7" fontSize="11" textAnchor="middle" fontWeight="bold">
+                  Warm Air Ceiling (Inversion Lid at ~150 meters)
+                </text>
+
+                {/* Trapped Cold Air with High Smog Concentration */}
+                <rect x="20" y="75" width="270" height="110" fill="#ef4444" fillOpacity="0.2" rx="6" />
+                <text x="155" y="100" fill="#fca5a5" fontSize="11" textAnchor="middle" fontWeight="bold">
+                  6:00 AM – 10:00 AM Hazard Peak
+                </text>
+                <text x="155" y="120" fill="#cbd5e1" fontSize="9" textAnchor="middle">
+                  Vehicular soot + biomass smoke trapped
+                </text>
+                <text x="155" y="140" fill="#ef4444" fontSize="14" textAnchor="middle" fontWeight="extrabold">
+                  AQI 350 – 500+ (Severe)
+                </text>
+                <text x="155" y="165" fill="#f87171" fontSize="9" textAnchor="middle">
+                  ⚠️ Cancel outdoor running & school sports
+                </text>
+
+                {/* Solar Convection Breaking Inversion at Noon */}
+                <rect x="310" y="75" width="270" height="110" fill="#10b981" fillOpacity="0.2" rx="6" />
+                <text x="445" y="100" fill="#6ee7b7" fontSize="11" textAnchor="middle" fontWeight="bold">
+                  1:00 PM – 3:30 PM Golden Window
+                </text>
+                <text x="445" y="120" fill="#cbd5e1" fontSize="9" textAnchor="middle">
+                  Sun breaks inversion cap, vertical mixing begins
+                </text>
+                <text x="445" y="140" fill="#10b981" fontSize="14" textAnchor="middle" fontWeight="extrabold">
+                  Lowest Daily PM2.5 Density
+                </text>
+                <text x="445" y="165" fill="#34d399" fontSize="9" textAnchor="middle">
+                  🌿 Safest time for home airing & errands
+                </text>
+
+                {/* Ground Line */}
+                <line x1="20" y1="195" x2="580" y2="195" stroke="#64748b" strokeWidth="2" strokeDasharray="4" />
+                <text x="300" y="215" fill="#94a3b8" fontSize="10" textAnchor="middle">
+                  Ground Level (Breathing Zone: 0 to 2 meters)
+                </text>
+              </svg>
+
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 text-center">
+                Exercising at 6:00 AM forces 50+ liters of concentrated particulates into your alveoli per minute. Moving activities to midday reduces particle deposition by up to 60%.
+              </p>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex justify-between items-center">
-                <div>
-                  <span className="font-bold text-rose-300 block">6:00 AM – 10:00 AM (Peak Hazard)</span>
-                  <span className="text-[11px] text-slate-300">Surface inversion cap active. Zero outdoor cardio.</span>
+            {/* Diurnal Timing Table */}
+            <div className="lg:col-span-5 space-y-3 text-xs">
+              <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                Daily Smog Schedule Summary
+              </h3>
+
+              <div className="p-3.5 rounded-xl border border-rose-200 dark:border-rose-900/40 bg-rose-50/50 dark:bg-rose-950/20 space-y-1">
+                <div className="flex items-center justify-between font-bold text-rose-800 dark:text-rose-300">
+                  <span>06:00 AM – 10:00 AM</span>
+                  <span className="text-[10px] uppercase px-2 py-0.5 rounded bg-rose-200 dark:bg-rose-900/60">Severe Risk</span>
                 </div>
-                <span className="font-extrabold text-rose-400">AQI 350+</span>
+                <p className="text-slate-600 dark:text-slate-300 text-[11px] leading-relaxed">
+                  Surface inversion is most acute. Keep windows tightly shut. Shift outdoor morning walks indoors.
+                </p>
               </div>
 
-              <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex justify-between items-center">
-                <div>
-                  <span className="font-bold text-emerald-300 block">1:00 PM – 3:30 PM (Golden Window)</span>
-                  <span className="text-[11px] text-slate-300">Solar mixing breaks inversion. Open home windows.</span>
+              <div className="p-3.5 rounded-xl border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/50 dark:bg-emerald-950/20 space-y-1">
+                <div className="flex items-center justify-between font-bold text-emerald-800 dark:text-emerald-300">
+                  <span>01:00 PM – 03:30 PM</span>
+                  <span className="text-[10px] uppercase px-2 py-0.5 rounded bg-emerald-200 dark:bg-emerald-900/60">Ventilation Window</span>
                 </div>
-                <span className="font-extrabold text-emerald-400">Optimal Air</span>
+                <p className="text-slate-600 dark:text-slate-300 text-[11px] leading-relaxed">
+                  Solar heating lifts the inversion lid. Safest time to open windows for 20–30 minutes to reduce indoor carbon dioxide.
+                </p>
               </div>
 
-              <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex justify-between items-center">
-                <div>
-                  <span className="font-bold text-amber-300 block">6:00 PM – 11:00 PM (Night Re-inversion)</span>
-                  <span className="text-[11px] text-slate-300">Traffic emissions accumulate as temperatures drop.</span>
+              <div className="p-3.5 rounded-xl border border-amber-200 dark:border-amber-900/40 bg-amber-50/50 dark:bg-amber-950/20 space-y-1">
+                <div className="flex items-center justify-between font-bold text-amber-800 dark:text-amber-300">
+                  <span>06:00 PM – 10:00 PM</span>
+                  <span className="text-[10px] uppercase px-2 py-0.5 rounded bg-amber-200 dark:bg-amber-900/60">Night Inversion</span>
                 </div>
-                <span className="font-extrabold text-amber-400">AQI 280+</span>
+                <p className="text-slate-600 dark:text-slate-300 text-[11px] leading-relaxed">
+                  Evening traffic emissions combine with rapid night cooling. Seal draft stoppers under main doors.
+                </p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* FAQ Accordion */}
-      <section id="faq" className="py-20 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-        <div className="text-center space-y-2">
-          <span className="text-xs font-bold uppercase tracking-widest text-brand-green-600">Got Questions?</span>
-          <h2 className="text-3xl font-extrabold tracking-tight">Frequently Asked Questions</h2>
+      {/* PART 3: INDOOR AIR & DIY PURIFIER (Clean Air Refuge Blueprint) */}
+      <section id="clean-air-refuge" className="py-14 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+        <div className="max-w-3xl space-y-2">
+          <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+            Practical Household Protection
+          </span>
+          <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
+            The EPA Clean Air Room & ₹1,500 DIY Purifier Blueprint
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+            During peak winter smog, indoor PM2.5 can be 3x worse than outdoor levels due to unventilated cooking, incense, and door seepage. Here is how to create a clean refuge inside your home without buying an expensive purifier.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+          {/* Clean Vector Diagram: Clean Air Room Blueprint */}
+          <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
+            <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+              <Home className="w-4 h-4 text-emerald-600" />
+              Room Sealing & Airflow Schematic
+            </h3>
+
+            <svg viewBox="0 0 500 260" className="w-full h-auto" xmlns="http://www.w3.org/2000/svg">
+              {/* Room Frame */}
+              <rect x="20" y="20" width="460" height="220" fill="#f8fafc" stroke="#94a3b8" strokeWidth="2" rx="8" />
+              
+              {/* Window with Tape */}
+              <rect x="40" y="50" width="60" height="80" fill="#e2e8f0" stroke="#64748b" strokeWidth="1.5" />
+              <line x1="40" y1="90" x2="100" y2="90" stroke="#64748b" strokeWidth="1" />
+              <line x1="70" y1="50" x2="70" y2="130" stroke="#64748b" strokeWidth="1" />
+              <rect x="36" y="46" width="68" height="88" fill="none" stroke="#ef4444" strokeWidth="2" strokeDasharray="3" />
+              <text x="70" y="150" fontSize="9" fill="#dc2626" textAnchor="middle" fontWeight="bold">Window Sealing Tape</text>
+
+              {/* Door with Draft Stopper */}
+              <rect x="420" y="70" width="40" height="150" fill="#cbd5e1" stroke="#475569" strokeWidth="1.5" />
+              <rect x="415" y="212" width="50" height="10" fill="#f59e0b" rx="2" />
+              <text x="380" y="222" fontSize="9" fill="#d97706" textAnchor="end" fontWeight="bold">Door Draft Stopper</text>
+
+              {/* Box Fan HEPA Purifier in Center */}
+              <rect x="210" y="110" width="80" height="80" fill="#0284c7" fillOpacity="0.2" stroke="#0284c7" strokeWidth="2" rx="6" />
+              <circle cx="250" cy="150" r="28" fill="#e0f2fe" stroke="#0284c7" strokeWidth="1.5" />
+              {/* Fan Blades */}
+              <path d="M250,150 L240,130 M250,150 L260,170 M250,150 L230,160 M250,150 L270,140" stroke="#0284c7" strokeWidth="3" strokeLinecap="round" />
+              {/* Filter Plate Behind */}
+              <rect x="200" y="120" width="10" height="60" fill="#10b981" rx="2" />
+              <text x="250" y="85" fontSize="10" fill="#0369a1" textAnchor="middle" fontWeight="bold">DIY Box Fan + MERV-13 Filter</text>
+              <text x="250" y="205" fontSize="8" fill="#64748b" textAnchor="middle">CADR: 120-150 CFM (~88% PM2.5 capture)</text>
+
+              {/* Clean Air Arrows */}
+              <path d="M 280 135 C 320 125, 340 100, 360 100" fill="none" stroke="#10b981" strokeWidth="2" strokeDasharray="3" markerEnd="url(#arrow)" />
+              <path d="M 280 165 C 320 175, 340 190, 360 180" fill="none" stroke="#10b981" strokeWidth="2" strokeDasharray="3" />
+            </svg>
+
+            <div className="grid grid-cols-3 gap-2 text-center text-[10px] text-slate-500 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <div>1. Seal Windows</div>
+              <div>2. Block Door Draft</div>
+              <div>3. Continuous Filtration</div>
+            </div>
+          </div>
+
+          {/* 4 Steps to Build DIY Purifier */}
+          <div className="space-y-4 text-xs">
+            <h3 className="font-bold text-base text-slate-900 dark:text-white">
+              The 4-Step DIY Air Cleaner Checklist
+            </h3>
+
+            <div className="space-y-3">
+              <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex gap-3">
+                <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-xs shrink-0">
+                  1
+                </div>
+                <div>
+                  <strong className="text-slate-900 dark:text-white block">Procure 230V Box Fan & MERV-13 Filter</strong>
+                  <span className="text-slate-500 dark:text-slate-400 text-[11px]">
+                    A standard 12-inch or 16-inch domestic box fan (approx. ₹800–₹1,000) and an HVAC MERV-13 or HEPA replacement filter (approx. ₹500–₹700).
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex gap-3">
+                <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-xs shrink-0">
+                  2
+                </div>
+                <div>
+                  <strong className="text-slate-900 dark:text-white block">Orient Filter Airflow Direction</strong>
+                  <span className="text-slate-500 dark:text-slate-400 text-[11px]">
+                    Mount filter onto the back of the fan. Ensure the printed airflow arrow points toward the fan blades (pulling room air through the filter).
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex gap-3">
+                <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-xs shrink-0">
+                  3
+                </div>
+                <div>
+                  <strong className="text-slate-900 dark:text-white block">Tightly Tape All Four Edges</strong>
+                  <span className="text-slate-500 dark:text-slate-400 text-[11px]">
+                    Use duct tape or packaging tape to seal all 4 perimeters. Air will always follow the path of least resistance—zero edge bypass is required.
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex gap-3">
+                <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-xs shrink-0">
+                  4
+                </div>
+                <div>
+                  <strong className="text-slate-900 dark:text-white block">Run in Sealed Bedroom</strong>
+                  <span className="text-slate-500 dark:text-slate-400 text-[11px]">
+                    Place in center of room away from curtains. Run at medium speed for 40 minutes before bedtime to drop indoor particulate counts by 80%.
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* PART 4: ASK USER TO LOGIN FOR ADVANCED & PERSONALIZED FEATURES */}
+      <section id="member-features" className="py-14 bg-slate-100/70 dark:bg-slate-900/60 border-t border-slate-200 dark:border-slate-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+          <div className="max-w-3xl space-y-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+              Personalized Protection
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
+              Sign In to Access Your Household Protection Tools
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+              Air quality affects an infant, a healthy runner, and an elderly asthma patient completely differently. Create a free account or sign in to unlock your tailored protection suite.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Locked Card 1: Family Vulnerability Matrix */}
+            <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4 relative flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                    <Lock className="w-3 h-3 text-amber-500" /> Member Feature
+                  </span>
+                </div>
+                <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                  Family Health Matrix
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Profile individual members (infants, asthmatics, elderly parents). Get customized exposure limits and bronchodilator accessibility notices.
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  onClick={() => setLockedModalFeature('Family Health Matrix')}
+                  className="w-full py-2 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Lock className="w-3.5 h-3.5" /> Sign In to Profile Family
+                </button>
+              </div>
+            </div>
+
+            {/* Locked Card 2: Diurnal Routine Planner */}
+            <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4 relative flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
+                    <Calendar className="w-5 h-5" />
+                  </div>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                    <Lock className="w-3 h-3 text-amber-500" /> Member Feature
+                  </span>
+                </div>
+                <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                  Diurnal Routine Planner
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Generate hour-by-hour schedules that automatically shift morning jogging and school commutes away from 6–10 AM inversion peaks.
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  onClick={() => setLockedModalFeature('Diurnal Routine Planner')}
+                  className="w-full py-2 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Lock className="w-3.5 h-3.5" /> Sign In to Plan Routines
+                </button>
+              </div>
+            </div>
+
+            {/* Locked Card 3: Home Air Assessment Wizard */}
+            <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4 relative flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="w-10 h-10 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 flex items-center justify-center">
+                    <Home className="w-5 h-5" />
+                  </div>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                    <Lock className="w-3 h-3 text-amber-500" /> Member Feature
+                  </span>
+                </div>
+                <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                  Clean Air Room Assessment
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Evaluate cooking fuel (LPG/PNG), incense burning, room volume, and exhaust capacity. Calculate your exact home safety score.
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  onClick={() => setLockedModalFeature('Clean Air Room Assessment')}
+                  className="w-full py-2 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Lock className="w-3.5 h-3.5" /> Sign In to Assess Home
+                </button>
+              </div>
+            </div>
+
+            {/* Locked Card 4: AI Saathi Copilot */}
+            <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4 relative flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 flex items-center justify-center">
+                    <Bot className="w-5 h-5" />
+                  </div>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                    <Lock className="w-3 h-3 text-amber-500" /> Member Feature
+                  </span>
+                </div>
+                <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                  AI Saathi Copilot (Gemini)
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Contextual AI consultations incorporating your local station AQI and household profiles, operating with strict medical triage boundaries.
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  onClick={() => setLockedModalFeature('AI Saathi Copilot')}
+                  className="w-full py-2 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Lock className="w-3.5 h-3.5" /> Sign In for AI Consultation
+                </button>
+              </div>
+            </div>
+
+            {/* Locked Card 5: Interactive Geospatial Map */}
+            <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4 relative flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 flex items-center justify-center">
+                    <MapPin className="w-5 h-5" />
+                  </div>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                    <Lock className="w-3 h-3 text-amber-500" /> Member Feature
+                  </span>
+                </div>
+                <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                  Geospatial Station Map
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Full Leaflet OpenStreetMap view with numeric CPCB radar pulse pins, GPS "Locate Me", and station popup telemetries.
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  onClick={() => setLockedModalFeature('Geospatial Station Map')}
+                  className="w-full py-2 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Lock className="w-3.5 h-3.5" /> Sign In for Map Explorer
+                </button>
+              </div>
+            </div>
+
+            {/* Locked Card 6: Smog Alerts & 7 AM Briefings */}
+            <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4 relative flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 flex items-center justify-center">
+                    <Bell className="w-5 h-5" />
+                  </div>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                    <Lock className="w-3 h-3 text-amber-500" /> Member Feature
+                  </span>
+                </div>
+                <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                  Smog Alerts & Morning Briefing
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Automated 7:00 AM daily briefings informing you of today's predicted peak hours and 30-minute threshold breach alerts.
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  onClick={() => setLockedModalFeature('Smog Alerts & Morning Briefing')}
+                  className="w-full py-2 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Lock className="w-3.5 h-3.5" /> Sign In for Alerts
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* PART 5: OFFICIAL CPCB REFERENCE SCALE (Educational) */}
+      <section className="py-14 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+          <div className="space-y-1">
+            <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+              Regulatory Standards
+            </span>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+              Official Central Pollution Control Board (CPCB) Scale
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              India's 6-tier classification framework and associated health impacts.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
+              <div className="h-2 rounded-full bg-[#55A630]" />
+              <div className="text-xs font-bold text-slate-900 dark:text-white">0 – 50</div>
+              <div className="text-[11px] font-bold text-[#55A630] uppercase">Good</div>
+              <p className="text-[10px] text-slate-500 leading-snug">Minimal impact. Safe for all outdoor activities.</p>
+            </div>
+
+            <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
+              <div className="h-2 rounded-full bg-[#80B918]" />
+              <div className="text-xs font-bold text-slate-900 dark:text-white">51 – 100</div>
+              <div className="text-[11px] font-bold text-[#80B918] uppercase">Satisfactory</div>
+              <p className="text-[10px] text-slate-500 leading-snug">Minor breathing discomfort to sensitive individuals.</p>
+            </div>
+
+            <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
+              <div className="h-2 rounded-full bg-[#FFB703]" />
+              <div className="text-xs font-bold text-slate-900 dark:text-white">101 – 200</div>
+              <div className="text-[11px] font-bold text-[#FFB703] uppercase">Moderate</div>
+              <p className="text-[10px] text-slate-500 leading-snug">Breathing discomfort to people with asthma & heart conditions.</p>
+            </div>
+
+            <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
+              <div className="h-2 rounded-full bg-[#FB8500]" />
+              <div className="text-xs font-bold text-slate-900 dark:text-white">201 – 300</div>
+              <div className="text-[11px] font-bold text-[#FB8500] uppercase">Poor</div>
+              <p className="text-[10px] text-slate-500 leading-snug">Breathing discomfort on prolonged exposure. Avoid morning runs.</p>
+            </div>
+
+            <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
+              <div className="h-2 rounded-full bg-[#D90429]" />
+              <div className="text-xs font-bold text-slate-900 dark:text-white">301 – 400</div>
+              <div className="text-[11px] font-bold text-[#D90429] uppercase">Very Poor</div>
+              <p className="text-[10px] text-slate-500 leading-snug">Respiratory illness on prolonged exposure. Run purifiers.</p>
+            </div>
+
+            <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
+              <div className="h-2 rounded-full bg-[#6B0504]" />
+              <div className="text-xs font-bold text-slate-900 dark:text-white">401 – 500+</div>
+              <div className="text-[11px] font-bold text-[#6B0504] uppercase">Severe</div>
+              <p className="text-[10px] text-slate-500 leading-snug">Affects healthy people; serious risk to sensitive individuals.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* PART 6: FREQUENTLY ASKED QUESTIONS */}
+      <section id="faq" className="py-14 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        <div className="space-y-1 text-center">
+          <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+            Common Inquiries
+          </span>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+            Frequently Asked Questions
+          </h2>
         </div>
 
         <div className="space-y-3">
           {faqs.map((faq, idx) => (
             <div
               key={idx}
-              className="rounded-2xl border border-border bg-card overflow-hidden transition-colors"
+              className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden"
             >
               <button
-                onClick={() => toggleFaq(idx)}
-                className="w-full p-5 text-left font-bold text-sm text-foreground flex items-center justify-between gap-4"
+                onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
+                className="w-full p-4 text-left font-semibold text-xs text-slate-900 dark:text-white flex items-center justify-between gap-4"
               >
                 <span>{faq.q}</span>
-                {openFaqIndex === idx ? (
-                  <ChevronUp className="w-4 h-4 text-brand-green-600 shrink-0" />
+                {openFaq === idx ? (
+                  <ChevronUp className="w-4 h-4 text-emerald-600 shrink-0" />
                 ) : (
-                  <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
                 )}
               </button>
-              {openFaqIndex === idx && (
-                <div className="px-5 pb-5 pt-1 text-xs text-muted-foreground leading-relaxed border-t border-border/50">
+              {openFaq === idx && (
+                <div className="px-4 pb-4 pt-1 text-xs text-slate-600 dark:text-slate-300 leading-relaxed border-t border-slate-100 dark:border-slate-800">
                   {faq.a}
                 </div>
               )}
@@ -519,95 +953,120 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Bottom CTA Banner */}
-      <section className="py-16 bg-brand-green-600 text-white">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
-            Start Protecting Your Family's Health Today
+      {/* PART 7: SIMPLE CLEAN CTA */}
+      <section className="py-12 bg-slate-900 text-white text-center">
+        <div className="max-w-3xl mx-auto px-4 space-y-4">
+          <h2 className="text-2xl font-bold">
+            Ready to Protect Your Household This Winter?
           </h2>
-          <p className="text-sm sm:text-base text-brand-green-100 max-w-xl mx-auto">
-            Free forever for Indian families. Real-time telemetry, personalized schedules, and affordable clean air hacks.
+          <p className="text-xs text-slate-300 max-w-lg mx-auto">
+            Free forever for Indian families. Access personalized routines, clean air room blueprints, and daily intelligence in under a minute.
           </p>
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
               to="/register"
-              className="w-full sm:w-auto px-8 py-3.5 rounded-xl font-bold text-sm bg-white text-brand-green-800 hover:bg-brand-green-50 shadow-lg transition-all"
+              className="w-full sm:w-auto px-6 py-2 rounded-lg text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-white transition-colors"
             >
-              Get Started Now (No Card Required)
+              Create Free Account
             </Link>
             <Link
-              to="/dashboard"
-              className="w-full sm:w-auto px-8 py-3.5 rounded-xl font-bold text-sm border border-white/30 text-white hover:bg-white/10 transition-all"
+              to="/login"
+              className="w-full sm:w-auto px-6 py-2 rounded-lg text-xs font-semibold border border-slate-700 hover:bg-slate-800 text-slate-200 transition-colors"
             >
-              View Public Dashboard
+              Sign In with Existing Account
             </Link>
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-card border-t border-border py-12 text-xs text-muted-foreground">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-4 gap-8">
-          <div className="space-y-3 col-span-2 sm:col-span-1">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-brand-green-600 flex items-center justify-center text-white">
-                <Wind className="w-4 h-4" />
-              </div>
-              <span className="font-bold text-base text-foreground">SaansSaathi</span>
+      {/* Clean Informative Footer */}
+      <footer className="bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 py-8 text-xs text-slate-500 dark:text-slate-400">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px]">
+            <div className="flex items-center gap-2 font-semibold text-slate-700 dark:text-slate-300">
+              <Wind className="w-4 h-4 text-emerald-600" />
+              <span>SaansSaathi — Breathe Better. Live Smarter.</span>
             </div>
-            <p className="text-[11px] leading-relaxed">
-              AI-Powered Urban Air Quality & Family Health Protection Platform.
+            <div className="flex items-center gap-4">
+              <Link to="/about" className="hover:underline">About</Link>
+              <Link to="/privacy" className="hover:underline">Privacy Policy</Link>
+              <Link to="/terms" className="hover:underline">Terms of Service</Link>
+            </div>
+          </div>
+
+          <div className="text-[10px] text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-800/80 pt-3 flex flex-col sm:flex-row justify-between gap-2">
+            <p>
+              Data Sources: Central Pollution Control Board (CPCB), OpenAQ, Open-Meteo, OpenStreetMap. Open-source under MIT License.
             </p>
-            <p className="text-[10px] text-muted-foreground">
-              © {new Date().getFullYear()} SaansSaathi. MIT Open Source.
+            <p>
+              Medical Disclaimer: For health awareness only. Consult a physician for clinical symptoms.
             </p>
-          </div>
-
-          <div className="space-y-2">
-            <span className="font-bold text-foreground block">Modules</span>
-            <ul className="space-y-1.5 text-[11px]">
-              <li><Link to="/dashboard" className="hover:text-foreground">Air Quality Dashboard</Link></li>
-              <li><Link to="/family" className="hover:text-foreground">Family Protection</Link></li>
-              <li><Link to="/indoor" className="hover:text-foreground">Indoor Air Hacks</Link></li>
-              <li><Link to="/planner" className="hover:text-foreground">Routine Planner</Link></li>
-              <li><Link to="/map" className="hover:text-foreground">Pollution Map</Link></li>
-            </ul>
-          </div>
-
-          <div className="space-y-2">
-            <span className="font-bold text-foreground block">Resources</span>
-            <ul className="space-y-1.5 text-[11px]">
-              <li><Link to="/chat" className="hover:text-foreground">AI Saathi Copilot</Link></li>
-              <li><Link to="/challenges" className="hover:text-foreground">Clean Air Challenges</Link></li>
-              <li><Link to="/notifications" className="hover:text-foreground">Alerts & Notifications</Link></li>
-              <li><Link to="/about" className="hover:text-foreground">About the Project</Link></li>
-            </ul>
-          </div>
-
-          <div className="space-y-2">
-            <span className="font-bold text-foreground block">Legal & Data</span>
-            <ul className="space-y-1.5 text-[11px]">
-              <li><Link to="/privacy" className="hover:text-foreground">Privacy Policy</Link></li>
-              <li><Link to="/terms" className="hover:text-foreground">Terms of Service</Link></li>
-              <li>
-                <a
-                  href="https://github.com/gondchawarswaraj45/SaansSaathi"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 hover:text-foreground"
-                >
-                  GitHub Source <ExternalLink className="w-3 h-3" />
-                </a>
-              </li>
-              <li>
-                <span className="text-[10px] text-muted-foreground/80 block mt-1">
-                  CPCB / OpenAQ / Open-Meteo Data
-                </span>
-              </li>
-            </ul>
           </div>
         </div>
       </footer>
+
+      {/* Clean Sign-In Modal when clicking a locked feature */}
+      {lockedModalFeature && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-md p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl space-y-5">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                    Sign In Required
+                  </h3>
+                  <span className="text-[11px] text-slate-500">
+                    To access: <strong>{lockedModalFeature}</strong>
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setLockedModalFeature(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              Personalized family vulnerability profiles, diurnal routine adjustments, and AI consultations are customized to your home and saved in your secure profile.
+            </p>
+
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs space-y-1">
+              <span className="font-semibold text-slate-700 dark:text-slate-200 block text-[11px]">
+                Demo Credentials Available:
+              </span>
+              <div className="font-mono text-[11px] text-slate-600 dark:text-slate-300">
+                Email: <strong>swaraj@saanssaathi.org</strong> | Password: <strong>Pass@1234</strong>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                onClick={() => {
+                  setLockedModalFeature(null)
+                  navigate('/login')
+                }}
+                className="flex-1 py-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors"
+              >
+                Sign In Now
+              </button>
+              <button
+                onClick={() => {
+                  setLockedModalFeature(null)
+                  navigate('/register')
+                }}
+                className="flex-1 py-2 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
+              >
+                Create Account
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
