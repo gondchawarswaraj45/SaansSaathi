@@ -1,126 +1,277 @@
-import { useState } from 'react'
-import { Calendar, Clock, CheckCircle2, Circle, AlertTriangle, ArrowRight, Shield } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import {
+  Calendar,
+  Clock,
+  Sparkles,
+  BarChart3,
+  Sun,
+  Shield,
+  RotateCcw,
+  CheckCircle2,
+} from 'lucide-react'
 import toast from 'react-hot-toast'
-
-interface RoutineItem {
-  id: number
-  time: string
-  original: string
-  recommended: string
-  reason: string
-  type: 'OUTDOOR' | 'INDOOR' | 'TRAVEL'
-  status: 'PENDING' | 'DONE'
-}
+import {
+  plannerApi,
+  type DailyRoutine,
+  type RoutineActivityRequest,
+  type WeeklyOverviewData,
+} from '@/api/plannerApi'
+import { PlannerHeader } from '@/components/planner/PlannerHeader'
+import { DailyScheduleTimeline } from '@/components/planner/DailyScheduleTimeline'
+import { CustomActivityModal } from '@/components/planner/CustomActivityModal'
+import { WeeklyOverview } from '@/components/planner/WeeklyOverview'
 
 export default function PlannerPage() {
-  const [items, setItems] = useState<RoutineItem[]>([
-    {
-      id: 1,
-      time: '06:00 AM – 07:00 AM',
-      original: 'Outdoor morning walk in neighborhood park',
-      recommended: 'Switch to indoor yoga / stretching or delay walk until 10:00 AM',
-      reason: 'Winter temperature inversion traps cold smog near the surface at sunrise.',
-      type: 'INDOOR',
-      status: 'DONE',
-    },
-    {
-      id: 2,
-      time: '08:00 AM – 08:45 AM',
-      original: 'School drop-off on 2-wheeler',
-      recommended: 'Carpool via closed vehicle with AC on recirculation, or wear certified N95 mask',
-      reason: 'Peak school rush coinciding with highest traffic particulate density.',
-      type: 'TRAVEL',
-      status: 'PENDING',
-    },
-    {
-      id: 3,
-      time: '01:00 PM – 02:00 PM',
-      original: 'Ventilate flat by opening all balcony doors',
-      recommended: 'Brief 15-min cross-ventilation only when sunlight breaks inversion and wind picks up',
-      reason: 'Mid-afternoon ambient air quality is relatively cleaner than morning or evening.',
-      type: 'INDOOR',
-      status: 'PENDING',
-    },
-    {
-      id: 4,
-      time: '05:30 PM – 07:00 PM',
-      original: 'Son’s outdoor football practice',
-      recommended: 'Move to indoor badminton / indoor gym training',
-      reason: 'Evening smog buildup as atmospheric boundary layer compresses.',
-      type: 'INDOOR',
-      status: 'PENDING',
-    },
-  ])
+  const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'timing'>('daily')
+  const [routine, setRoutine] = useState<DailyRoutine | null>(null)
+  const [weeklyData, setWeeklyData] = useState<WeeklyOverviewData | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isRegenerating, setIsRegenerating] = useState(false)
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
-  const toggleStatus = (id: number) => {
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? { ...item, status: item.status === 'DONE' ? 'PENDING' : 'DONE' }
-          : item
-      )
-    )
-    toast.success('Routine updated!')
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  const loadData = async () => {
+    setIsLoading(true)
+    try {
+      const [todayRes, weekRes] = await Promise.all([
+        plannerApi.getTodayRoutine().catch(() => null),
+        plannerApi.getWeeklyOverview().catch(() => null),
+      ])
+
+      if (todayRes) setRoutine(todayRes)
+      if (weekRes) setWeeklyData(weekRes)
+    } catch (err) {
+      console.error('Failed to load planner data', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleRegenerate = async () => {
+    setIsRegenerating(true)
+    try {
+      const updated = await plannerApi.generateRoutine()
+      setRoutine(updated)
+      toast.success('Routine regenerated with latest telemetry!')
+    } catch (err) {
+      console.error('Failed to regenerate routine', err)
+      toast.error('Failed to regenerate routine')
+    } finally {
+      setIsRegenerating(false)
+    }
+  }
+
+  const handleToggleComplete = async (actId: number) => {
+    if (!routine) return
+    try {
+      const updatedAct = await plannerApi.toggleComplete(routine.id, actId)
+      setRoutine((prev) => {
+        if (!prev) return null
+        const newActivities = prev.activities.map((a) => (a.id === actId ? updatedAct : a))
+        const completed = newActivities.filter((a) => a.isCompleted).length
+        const total = newActivities.length
+        const pct = total > 0 ? Math.round((completed / total) * 100) : 0
+        return {
+          ...prev,
+          activities: newActivities,
+          completedActivitiesCount: completed,
+          compliancePercentage: pct,
+        }
+      })
+      toast.success(updatedAct.isCompleted ? 'Activity completed!' : 'Activity marked pending')
+    } catch (err) {
+      console.error('Failed to toggle completion', err)
+      toast.error('Failed to update activity')
+    }
+  }
+
+  const handleAddCustomActivity = async (data: RoutineActivityRequest) => {
+    if (!routine) return
+    try {
+      const created = await plannerApi.addActivity(routine.id, data)
+      setRoutine((prev) => {
+        if (!prev) return null
+        const newActivities = [...prev.activities, created].sort((a, b) =>
+          a.startTime.localeCompare(b.startTime)
+        )
+        const completed = newActivities.filter((a) => a.isCompleted).length
+        const total = newActivities.length
+        return {
+          ...prev,
+          isCustom: true,
+          activities: newActivities,
+          totalActivitiesCount: total,
+          compliancePercentage: Math.round((completed / total) * 100),
+        }
+      })
+      toast.success('Custom activity scheduled!')
+    } catch (err) {
+      console.error('Failed to add custom activity', err)
+      toast.error('Failed to schedule activity')
+    }
+  }
+
+  const handleDeleteActivity = async (actId: number) => {
+    if (!routine) return
+    try {
+      await plannerApi.deleteActivity(routine.id, actId)
+      setRoutine((prev) => {
+        if (!prev) return null
+        const newActivities = prev.activities.filter((a) => a.id !== actId)
+        const completed = newActivities.filter((a) => a.isCompleted).length
+        const total = newActivities.length
+        return {
+          ...prev,
+          activities: newActivities,
+          totalActivitiesCount: total,
+          compliancePercentage: total > 0 ? Math.round((completed / total) * 100) : 0,
+        }
+      })
+      toast.success('Activity removed')
+    } catch (err) {
+      console.error('Failed to delete activity', err)
+      toast.error('Failed to remove activity')
+    }
   }
 
   return (
-    <div className="page-container space-y-8 animate-fade-in">
-      <div className="pb-2 border-b border-border">
-        <h1 className="text-2xl font-bold tracking-tight">Smart Daily Routine Planner</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Low-emission, exposure-minimized schedules synchronized with diurnal pollution cycles.
-        </p>
+    <div className="page-container space-y-6 animate-fade-in pb-12">
+      {/* Page Header */}
+      <div className="pb-3 border-b border-border flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2.5">
+            <Clock className="w-7 h-7 text-brand-green-600" />
+            Smart Daily Routine Planner
+          </h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+            Low-emission schedules synchronized with diurnal smog cycles, temperature inversions, and family routines.
+          </p>
+        </div>
       </div>
 
-      {/* Routine Timeline */}
-      <div className="space-y-4">
-        {items.map((item) => (
-          <div
-            key={item.id}
-            onClick={() => toggleStatus(item.id)}
-            className={`p-6 rounded-3xl border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
-              item.status === 'DONE'
-                ? 'bg-muted/40 border-border opacity-70'
-                : 'bg-card border-border shadow-sm hover:border-brand-green-600/40'
-            }`}
-          >
-            <div className="flex items-start gap-4">
-              <button className="mt-1 text-brand-green-600">
-                {item.status === 'DONE' ? (
-                  <CheckCircle2 className="w-6 h-6" />
-                ) : (
-                  <Circle className="w-6 h-6 text-muted-foreground" />
-                )}
-              </button>
+      {/* Tabs */}
+      <div className="flex items-center gap-2 p-1.5 bg-muted/60 rounded-2xl w-fit text-xs font-bold border border-border">
+        <button
+          onClick={() => setActiveTab('daily')}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl transition-all ${
+            activeTab === 'daily'
+              ? 'bg-card text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Clock className="w-4 h-4 text-brand-green-600" /> Today's Routine
+        </button>
 
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs font-bold text-brand-green-700 dark:text-brand-green-400 bg-brand-green-50 dark:bg-brand-green-950 px-2 py-0.5 rounded">
-                    {item.time}
-                  </span>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    {item.type}
-                  </span>
-                </div>
+        <button
+          onClick={() => setActiveTab('weekly')}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl transition-all ${
+            activeTab === 'weekly'
+              ? 'bg-card text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <BarChart3 className="w-4 h-4 text-purple-600" /> Weekly Overview
+        </button>
 
-                <div className="text-xs text-muted-foreground line-through">
-                  Original Plan: {item.original}
-                </div>
-                <div className="text-sm font-bold text-foreground">
-                  👉 Recommended: {item.recommended}
-                </div>
-                <p className="text-xs text-muted-foreground flex items-center gap-1.5 pt-1">
-                  <Shield className="w-3.5 h-3.5 text-brand-sky-500 shrink-0" /> {item.reason}
+        <button
+          onClick={() => setActiveTab('timing')}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl transition-all ${
+            activeTab === 'timing'
+              ? 'bg-card text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Sun className="w-4 h-4 text-amber-500" /> Inversion Timing Guide
+        </button>
+      </div>
+
+      {/* TAB 1: Daily Routine */}
+      {activeTab === 'daily' && (
+        <div className="space-y-6">
+          {routine && (
+            <PlannerHeader
+              routine={routine}
+              onRegenerate={handleRegenerate}
+              onAddCustom={() => setIsModalOpen(true)}
+              isRegenerating={isRegenerating}
+            />
+          )}
+
+          {routine && (
+            <DailyScheduleTimeline
+              activities={routine.activities}
+              onToggleComplete={handleToggleComplete}
+              onDeleteActivity={handleDeleteActivity}
+            />
+          )}
+        </div>
+      )}
+
+      {/* TAB 2: Weekly Overview */}
+      {activeTab === 'weekly' && weeklyData && <WeeklyOverview data={weeklyData} />}
+
+      {/* TAB 3: Inversion Timing Guide */}
+      {activeTab === 'timing' && (
+        <div className="space-y-6 animate-fade-in">
+          <div className="bg-card border border-border rounded-3xl p-6 sm:p-7 shadow-sm space-y-4">
+            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <Sun className="w-5 h-5 text-amber-500" />
+              The Science of Diurnal Smog Cycles in Indian Cities
+            </h2>
+            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+              In urban India (Delhi NCR, Kanpur, Patna, Lucknow, Pune), winter pollution follows a sharp, predictable diurnal rhythm governed by atmospheric boundary layer dynamics:
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+              <div className="p-4 rounded-2xl bg-red-50/50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 space-y-2">
+                <span className="text-xs font-black text-red-700 dark:text-red-400 uppercase block">
+                  06:00 AM – 10:00 AM: Severe Danger Window
+                </span>
+                <p className="text-xs text-foreground/80 leading-relaxed">
+                  Nocturnal radiation cooling traps calm, cold air below 100 meters. Stubble smoke, heavy diesel trucks, and morning rush-hour emissions pool at breathing height.
                 </p>
+                <div className="text-[11px] font-bold text-red-600">
+                  ⚠️ Never do outdoor cardio. Keep all windows shut.
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-brand-green-50/60 dark:bg-brand-green-950/20 border border-brand-green-200 dark:border-brand-green-900 space-y-2">
+                <span className="text-xs font-black text-brand-green-700 dark:text-brand-green-400 uppercase block">
+                  12:30 PM – 03:30 PM: Optimal Exposure Window
+                </span>
+                <p className="text-xs text-foreground/80 leading-relaxed">
+                  Solar thermal heating expands the atmospheric boundary layer up to 1,200 meters. Wind speeds increase, diluting particulate concentrations to daily minimums.
+                </p>
+                <div className="text-[11px] font-bold text-brand-green-600">
+                  ✓ Safest slot for cross-ventilation, errands & light exercise.
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-orange-50/50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900 space-y-2">
+                <span className="text-xs font-black text-orange-700 dark:text-orange-400 uppercase block">
+                  06:00 PM – 10:00 PM: Evening Re-Compression
+                </span>
+                <p className="text-xs text-foreground/80 leading-relaxed">
+                  Sunset cools the surface rapidly. Evening rush hour congestion coincides with boundary layer compression, causing sudden PM2.5 and NO2 spikes.
+                </p>
+                <div className="text-[11px] font-bold text-orange-600">
+                  ⚠️ Close windows before sunset. Move sports indoors.
+                </div>
               </div>
             </div>
-
-            <div className="self-end sm:self-center text-xs font-semibold text-brand-green-700">
-              {item.status === 'DONE' ? 'Completed' : 'Mark Done'}
-            </div>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
+
+      {/* Custom Activity Modal */}
+      <CustomActivityModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onAdd={handleAddCustomActivity}
+      />
     </div>
   )
 }

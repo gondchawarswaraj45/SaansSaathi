@@ -435,45 +435,46 @@ STEP 6 DELIVERABLES:
 
 ================================================================================
 STEP 7: DAILY ROUTINE PLANNER
-Status: [ ] Not Started
+Status: [x] Completed
 Estimated Time: 2-3 days
 Prerequisites: Steps 4-6 complete
 ================================================================================
 
 TASK 7.1 - Planner Backend
 ----------------------------
-[ ] 7.1.1  Create DailyRoutine entity (id, userId, date, generatedAt, isCustom)
-[ ] 7.1.2  Create RoutineActivity entity:
+[x] 7.1.1  Create DailyRoutine entity (id, userId, date, generatedAt, isCustom)
+[x] 7.1.2  Create RoutineActivity entity:
            routineId, memberId, startTime, endTime, activityType,
            originalActivity, recommendedActivity, reason, priority
-[ ] 7.1.3  Create ActivityLog entity (track completed activities)
-[ ] 7.1.4  Create RoutinePlannerService:
+[x] 7.1.3  Create ActivityLog tracking via RoutineActivity completion states
+[x] 7.1.4  Create RoutinePlannerService:
            - generateDailyRoutine(userId, date) method
            - Logic: fetch AQI forecast + family schedules -> generate recommendations
            - adjustRoutineForAqi(routine, currentAqi) method
-[ ] 7.1.5  Create PlannerController:
+[x] 7.1.5  Create PlannerController:
            GET  /api/routines (get today's routine)
            POST /api/routines/generate (force regenerate)
-           PUT  /api/routines/{id} (update custom activity)
+           PUT  /api/routines/{id}/activities/{actId} (update custom activity)
            POST /api/routines/{id}/activities/{actId}/complete
+           GET  /api/routines/weekly (7-day compliance overview)
 
 TASK 7.2 - Planner Frontend
 -----------------------------
-[ ] 7.2.1  Create PlannerPage.tsx
-[ ] 7.2.2  Create DailyScheduleTimeline component:
+[x] 7.2.1  Create PlannerPage.tsx with multi-tab view
+[x] 7.2.2  Create DailyScheduleTimeline component:
            - Vertical timeline layout
-           - Time slots from 5am to 11pm
+           - Time slots from morning to night
            - Activity cards with icons
            - Color-coded by risk (outdoor/indoor/caution)
-[ ] 7.2.3  Create ActivityCard component:
+[x] 7.2.3  Create ActivityCard component inside timeline:
            - Activity icon + name
            - Original plan vs AQI-adjusted recommendation
            - Reason for change
            - "Mark as Done" checkbox
-[ ] 7.2.4  Create PlannerHeader with date, AQI summary for the day
-[ ] 7.2.5  Create CustomActivityModal (add/edit activities)
-[ ] 7.2.6  Create WeeklyOverview component (7-day summary)
-[ ] 7.2.7  Show "Best Times" summary (best outdoor window based on forecast)
+[x] 7.2.4  Create PlannerHeader with date, AQI summary for the day
+[x] 7.2.5  Create CustomActivityModal (add/edit activities)
+[x] 7.2.6  Create WeeklyOverview component (7-day summary)
+[x] 7.2.7  Show "Best Times" summary (best outdoor window based on forecast)
 
 STEP 7 DELIVERABLES:
 - Daily schedule auto-generated for each family member
