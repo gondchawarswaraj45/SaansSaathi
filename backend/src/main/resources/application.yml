@@ -3,28 +3,25 @@ spring:
     name: saanssaathi-backend
 
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/saanssaathi_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
-    username: ${DB_USERNAME:saanssaathi_user}
-    password: ${DB_PASSWORD:saanssaathi_pass}
+    url: ${DB_URL:jdbc:sqlite:saanssaathi.db}
+    driver-class-name: ${DB_DRIVER:org.sqlite.JDBC}
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 2
+      maximum-pool-size: 5
       connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
 
   jpa:
+    database-platform: ${DB_PLATFORM:org.hibernate.community.dialect.SQLiteDialect}
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     show-sql: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQL8Dialect
+        dialect: ${HIBERNATE_DIALECT:org.hibernate.community.dialect.SQLiteDialect}
         format_sql: true
         default_batch_fetch_size: 20
 
   flyway:
-    enabled: true
+    enabled: ${FLYWAY_ENABLED:false}
     baseline-on-migrate: true
     locations: classpath:db/migration
 

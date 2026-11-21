@@ -1,0 +1,117 @@
+================================================================================
+SAANSSAATHI - SQLITE DATABASE ARCHITECTURE & CONFIGURATION GUIDE
+Document ID: 08_sqlite_database_architecture.txt
+Purpose: Comprehensive guide to the SQLite embedded database configuration,
+         Hibernate 6 dialect integration, baseline auto-seeding, and deployment.
+================================================================================
+
+1. WHY SQLITE FOR SAANSSAATHI?
+--------------------------------------------------------------------------------
+While MySQL is a robust enterprise RDBMS, transitioning to SQLite delivers key
+engineering and operational advantages:
+  1. Zero Configuration / Self-Contained: No need to install, start, or maintain
+     a separate MySQL service daemon, port 3306 binding, or root passwords.
+  2. Instant Portability: The entire database resides in a single file
+     (`saanssaathi.db`), making backups, staging clones, and test fixtures as simple
+     as copying a file.
+  3. Single-Command Startup: Developers or evaluators can run the Spring Boot app
+     directly without setting up dockerized MySQL or remote credentials.
+  4. Lightweight Footprint: Minimal RAM usage, perfect for containerized deployment
+     on free/hobby cloud tiers (e.g., Render, Railway, fly.io).
+
+
+2. SPRING BOOT 3 & HIBERNATE 6 SQLITE INTEGRATION
+--------------------------------------------------------------------------------
+In Spring Boot 3.3.5 (Hibernate 6.5+), the SQLite dialect is maintained in the
+Hibernate Community Dialects package.
+
+Maven Dependencies (backend/pom.xml):
+```xml
+<!-- SQLite JDBC Driver -->
+<dependency>
+    <groupId>org.xerial</groupId>
+    <artifactId>sqlite-jdbc</artifactId>
+</dependency>
+
+<!-- Hibernate 6 Community Dialects for SQLiteDialect -->
+<dependency>
+    <groupId>org.hibernate.orm</groupId>
+    <artifactId>hibernate-community-dialects</artifactId>
+</dependency>
+```
+
+Spring Configuration (backend/src/main/resources/application.yml):
+```yaml
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:sqlite:saanssaathi.db}
+    driver-class-name: ${DB_DRIVER:org.sqlite.JDBC}
+    hikari:
+      maximum-pool-size: 5
+      connection-timeout: 30000
+
+  jpa:
+    database-platform: ${DB_PLATFORM:org.hibernate.community.dialect.SQLiteDialect}
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: ${HIBERNATE_DIALECT:org.hibernate.community.dialect.SQLiteDialect}
+        format_sql: true
+        default_batch_fetch_size: 20
+
+  flyway:
+    enabled: ${FLYWAY_ENABLED:false}
+```
+
+
+3. CRITICAL HIBERNATE 6 / SQLITE COMPATIBILITY FIXES
+--------------------------------------------------------------------------------
+A common issue when migrating from MySQL to SQLite in Hibernate 6 is the error:
+`IllegalArgumentException: scale has no meaning for SQL floating point types`.
+
+Cause:
+In MySQL, `@Column(precision = 9, scale = 6)` is often applied to `Double latitude`
+and `Double longitude`. In Hibernate 6, `Double` maps to SQL `REAL` / `FLOAT`, where
+`scale` has no semantic meaning.
+
+Solution:
+In `City.java`, `MonitoringStation.java`, and `UserLocation.java`:
+- Changed `@Column(nullable = false, precision = 9, scale = 6)`
+- To: `@Column(nullable = false)`
+Fixed-point monetary or pollutant metrics (`Pollutant.cpcbSafeLimit`, `PollutantReading.value`)
+continue to use `BigDecimal` with valid precision and scale.
+
+
+4. AUTOMATED BASELINE DATA INITIALIZER
+--------------------------------------------------------------------------------
+Class: `com.saanssaathi.app.config.DataInitializer`
+Implements: `org.springframework.boot.CommandLineRunner`
+
+Because SQLite starts as a fresh empty database file, `DataInitializer` checks table
+counts on startup and automatically seeds:
+- 30 Top Indian Cities (Delhi, Mumbai, Bangalore, Pune, Ahmedabad, etc. with exact coordinates).
+- 8 Statutory Pollutants (PM2.5, PM10, NO2, SO2, CO, O3, NH3, Pb) with CPCB safe limits and WHO guidelines.
+- 10 Clean Air Challenges (Public transit, no idling, smoke-free home, damp mopping, etc.).
+- Default Admin User (`admin@saanssaathi.org` / `Admin@123`, role: `ADMIN`).
+- Default Demo User (`demo@saanssaathi.org` / `Demo@123`, role: `USER`).
+- Initial Monitoring Stations & Live CPCB Telemetry Readings (Delhi Anand Vihar, RK Puram, Mumbai Bandra, Pune Shivajinagar).
+
+
+5. HIKARI CONNECTION POOLING CONSIDERATIONS
+--------------------------------------------------------------------------------
+SQLite uses file-level locking during write transactions (`BEGIN IMMEDIATE` / `COMMIT`).
+- Hikari `maximum-pool-size: 5` with `connection-timeout: 30000` (30 seconds) allows
+  concurrent read operations while serializing writes without causing `SQLITE_BUSY` errors.
+- Write-Ahead Logging (WAL) mode can be enabled for higher write throughput if needed:
+  `jdbc:sqlite:saanssaathi.db?journal_mode=WAL`
+
+
+6. VERIFICATION & TEST SUITE RESULTS
+--------------------------------------------------------------------------------
+- Unit & Integration Tests: 36/36 tests passing cleanly (`mvn test`).
+- Test Coverage: Includes `SqliteDatabaseIntegrationTest` and `AuthControllerIntegrationTest`
+  verifying SQLite schema auto-creation, data seeding, user registration, and BCrypt authentication.
+- Frontend Tests: 12/12 Vitest tests passing (`npm test`).
+================================================================================

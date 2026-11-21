@@ -28,10 +28,10 @@ public class City {
     @Builder.Default
     private String country = "India";
 
-    @Column(nullable = false, precision = 9, scale = 6)
+    @Column(nullable = false)
     private Double latitude;
 
-    @Column(nullable = false, precision = 9, scale = 6)
+    @Column(nullable = false)
     private Double longitude;
 
     @Column(name = "is_active", nullable = false)
