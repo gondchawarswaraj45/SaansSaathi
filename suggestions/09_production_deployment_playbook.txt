@@ -1,0 +1,112 @@
+================================================================================
+SAANSSAATHI - PRODUCTION DEPLOYMENT & CI/CD PLAYBOOK
+Document ID: 09_production_deployment_playbook.txt
+Purpose: Complete deployment manual for Vercel (Frontend), Render / Railway
+         (Backend + SQLite), Environment Variables, and Continuous Integration.
+================================================================================
+
+1. ARCHITECTURAL OVERVIEW
+--------------------------------------------------------------------------------
+SaansSaathi is designed as a cloud-decoupled application:
+- Frontend (React 19 + TypeScript + Vite + Tailwind): Deployed as a static SPA on Vercel
+  with instant global Edge CDN distribution and automatic client-side rewrites.
+- Backend (Java 17 + Spring Boot 3): Deployed as a containerized web service on Render
+  or Railway using the provided multi-stage `backend/Dockerfile` or `render.yaml`.
+- Database: Embedded SQLite (`saanssaathi.db`) stored on a persistent volume mount (`/data`),
+  or configurable to remote MySQL without changing any Java code.
+
+
+2. FRONTEND DEPLOYMENT TO VERCEL (2 MINUTES)
+--------------------------------------------------------------------------------
+Step 1: Sign in to Vercel (https://vercel.com) with GitHub.
+Step 2: Click "Add New" -> "Project" -> Import `https://github.com/gondchawarswaraj45/SaansSaathi.git`.
+Step 3: Configure Project Settings:
+  - Framework Preset: Vite
+  - Root Directory: `frontend`
+  - Build Command: `npm run build`
+  - Output Directory: `dist`
+  - Install Command: `npm install`
+Step 4: Configure Environment Variables:
+  - `VITE_API_BASE_URL`: `https://saanssaathi-backend.onrender.com/api` (or your backend URL)
+Step 5: Click "Deploy".
+  - Vercel uses `frontend/vercel.json` to handle client-side routing rewrites (`/* -> /index.html`)
+    and applies strict HTTP security headers (X-Frame-Options, X-Content-Type-Options).
+
+
+3. BACKEND DEPLOYMENT TO RENDER (1-CLICK BLUEPRINT)
+--------------------------------------------------------------------------------
+Option A: Using the 1-Click `render.yaml` Blueprint:
+  1. Go to https://dashboard.render.com -> Blueprints -> "New Blueprint Instance".
+  2. Connect your repo: `gondchawarswaraj45/SaansSaathi`.
+  3. Render detects `render.yaml` and provisions:
+     - Web Service: `saanssaathi-backend` (Docker runtime)
+     - Persistent Disk: `sqlite-data` (1GB mounted at `/data`)
+     - Static Site: `saanssaathi-frontend`
+
+Option B: Manual Service Creation on Render:
+  1. New Web Service -> Connect GitHub repo.
+  2. Environment: Docker.
+  3. Docker Context Directory: `./backend`
+  4. Dockerfile Path: `./backend/Dockerfile`
+  5. Region: Oregon (US West) or Frankfurt (EU).
+  6. Add Disk:
+     - Name: `sqlite-data`
+     - Mount Path: `/data`
+     - Size: 1 GB
+  7. Environment Variables:
+     - `SPRING_PROFILES_ACTIVE`: `prod`
+     - `DB_URL`: `jdbc:sqlite:/data/saanssaathi.db`
+     - `JWT_SECRET`: Generate a secure 32+ character hex string (or use Render generator)
+     - `GEMINI_API_KEY`: Your Google Cloud Gemini API key (optional, NLP fallback active if missing)
+     - `OPENAQ_API_KEY`: Your OpenAQ API v3 key
+     - `FRONTEND_URL`: `https://your-vercel-app.vercel.app` (for CORS authorization)
+
+
+4. DUAL DATABASE FLEXIBILITY: SQLITE VS. MYSQL
+--------------------------------------------------------------------------------
+SaansSaathi supports seamless runtime switching without recompiling the application:
+
+- To use SQLite (Default - Recommended for zero cost & simplicity):
+  - `DB_URL`: `jdbc:sqlite:/data/saanssaathi.db`
+  - `DB_DRIVER`: `org.sqlite.JDBC`
+  - `DB_PLATFORM`: `org.hibernate.community.dialect.SQLiteDialect`
+
+- To use Remote MySQL (Railway / PlanetScale / AWS RDS):
+  - `DB_URL`: `jdbc:mysql://<host>:<port>/<db>?useSSL=true&serverTimezone=UTC`
+  - `DB_DRIVER`: `com.mysql.cj.jdbc.Driver`
+  - `DB_PLATFORM`: `org.hibernate.dialect.MySQLDialect`
+  - `DB_USERNAME`: `<username>`
+  - `DB_PASSWORD`: `<password>`
+
+
+5. GITHUB ACTIONS CI/CD PIPELINE
+--------------------------------------------------------------------------------
+Every push or pull request to `main` automatically triggers two parallel workflows:
+
+1. Backend CI (`.github/workflows/backend-ci.yml`):
+   - Sets up Eclipse Temurin Java 17.
+   - Caches Maven dependencies in `~/.m2/repository`.
+   - Runs full test suite (36 tests including SQLite schema verification & Auth MockMvc).
+   - Packages production JAR artifact.
+
+2. Frontend CI (`.github/workflows/frontend-ci.yml`):
+   - Sets up Node.js 20.
+   - Runs `npm ci` with cached dependencies.
+   - Runs TypeScript strict validation (`npm run type-check`).
+   - Runs Oxlint static code analysis (`npm run lint`).
+   - Runs Vitest test suite (`npm test`, 12 tests).
+   - Generates production bundle (`npm run build`).
+
+
+6. FREE-TIER COLD-START PREVENTION (UPTIMEROBOT)
+--------------------------------------------------------------------------------
+Free tiers on Render spin down after 15 minutes of inactivity.
+To keep the backend warm and instantly responsive:
+  1. Create a free account on https://uptimerobot.com.
+  2. Click "Add New Monitor".
+  3. Monitor Type: HTTP(s).
+  4. Friendly Name: SaansSaathi Backend Pulse.
+  5. URL: `https://your-backend.onrender.com/api/health`
+  6. Monitoring Interval: Every 10 minutes.
+  7. This ensures the health check responds with `200 OK`, preventing sleeping instances.
+================================================================================

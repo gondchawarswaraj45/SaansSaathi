@@ -4,10 +4,12 @@
 **AI-Powered Urban Air Quality & Family Health Protection Platform for Winter Smog Mitigation**
 
 [![GitHub Repository](https://img.shields.io/badge/GitHub-SaansSaathi-10b981?style=for-the-badge&logo=github)](https://github.com/gondchawarswaraj45/SaansSaathi.git)
-[![Backend](https://img.shields.io/badge/Backend-Spring%20Boot%203.2%20%7C%20Java%2017-f97316?style=for-the-badge&logo=springboot)](https://spring.io/projects/spring-boot)
+[![Backend CI](https://github.com/gondchawarswaraj45/SaansSaathi/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/gondchawarswaraj45/SaansSaathi/actions/workflows/backend-ci.yml)
+[![Frontend CI](https://github.com/gondchawarswaraj45/SaansSaathi/actions/workflows/frontend-ci.yml/badge.svg)](https://github.com/gondchawarswaraj45/SaansSaathi/actions/workflows/frontend-ci.yml)
+[![Backend](https://img.shields.io/badge/Backend-Spring%20Boot%203.3%20%7C%20Java%2017-f97316?style=for-the-badge&logo=springboot)](https://spring.io/projects/spring-boot)
 [![Frontend](https://img.shields.io/badge/Frontend-React%2019%20%7C%20TypeScript-38bdf8?style=for-the-badge&logo=react)](https://react.dev)
 [![AI Engine](https://img.shields.io/badge/AI-Google%20Gemini%201.5%20Flash-8b5cf6?style=for-the-badge&logo=google)](https://ai.google.dev/)
-[![Database](https://img.shields.io/badge/Database-MySQL%208.0%20%7C%20Flyway-0284c7?style=for-the-badge&logo=mysql)](https://www.mysql.com/)
+[![Database](https://img.shields.io/badge/Database-SQLite%203%20%7C%20MySQL%208.0-0284c7?style=for-the-badge&logo=sqlite)](https://www.sqlite.org/)
 [![Styling](https://img.shields.io/badge/Styling-Tailwind%20CSS%20v3-06b6d4?style=for-the-badge&logo=tailwindcss)](https://tailwindcss.com)
 
 ---
@@ -285,10 +287,11 @@ SaansSaathi is built for cloud deployment across decoupled platforms:
 
 | Component | Platform | Configuration |
 |:---|:---|:---|
-| **Frontend** | **Vercel** | Vite static build (`npm run build`), automatic client-side routing rewrites (`vercel.json`), HTTP proxy to backend. |
-| **Backend** | **Render / Railway** | Containerized Spring Boot 17 (`Dockerfile` or Native Maven Buildpack), zero-downtime health probes. |
-| **Database** | **Railway MySQL / PlanetScale** | Managed MySQL 8.0 with automatic connection pooling (`HikariCP`), SSL enforced. |
-| **AI Copilot** | **Google Cloud Vertex AI / Gemini API** | Secured backend-to-backend API key authentication with strict rate limits. |
+| **Frontend** | **Vercel / Netlify** | Vite static build (`npm run build`), automatic client-side routing rewrites (`vercel.json` & `_redirects`), HTTP proxy to backend. |
+| **Backend** | **Render / Railway** | Containerized Spring Boot 17 (`Dockerfile` multi-stage build or `render.yaml` 1-click blueprint), zero-downtime health probes at `/api/health`. |
+| **Database** | **SQLite (Embedded) / Railway MySQL** | Portable SQLite database with auto-seeding via `DataInitializer` or remote MySQL with connection pooling (`HikariCP`). |
+| **AI Copilot** | **Google Cloud Vertex AI / Gemini API** | Secured backend-to-backend API key authentication with strict rate limits and medical triage guardrails. |
+| **CI/CD** | **GitHub Actions** | Automated multi-stage testing on every push and PR (`backend-ci.yml` & `frontend-ci.yml`). |
 
 ---
 

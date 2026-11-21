@@ -1,0 +1,47 @@
+# ==============================================================================
+# SaansSaathi - Render Full-Stack Blueprint
+# 1-Click Cloud Deployment for Backend (Spring Boot + SQLite) & Frontend (Vite)
+# ==============================================================================
+services:
+  # Spring Boot Backend API Service
+  - type: web
+    name: saanssaathi-backend
+    env: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    region: oregon
+    healthCheckPath: /api/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: DB_URL
+        value: jdbc:sqlite:/data/saanssaathi.db
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENAQ_API_KEY
+        sync: false
+      - key: FRONTEND_URL
+        value: https://saanssaathi.vercel.app,https://saanssaathi-frontend.onrender.com
+    disk:
+      name: sqlite-data
+      mountPath: /data
+      sizeGB: 1
+
+  # React + Vite Frontend Static Site
+  - type: web
+    name: saanssaathi-frontend
+    env: static
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: ./frontend/dist
+    plan: free
+    region: oregon
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://saanssaathi-backend.onrender.com/api

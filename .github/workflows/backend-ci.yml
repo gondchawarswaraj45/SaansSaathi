@@ -3,68 +3,50 @@ name: Backend CI
 on:
   push:
     branches: [ main, develop ]
-    paths: [ 'backend/**' ]
+    paths: [ 'backend/**', '.github/workflows/backend-ci.yml' ]
   pull_request:
     branches: [ main ]
-    paths: [ 'backend/**' ]
+    paths: [ 'backend/**', '.github/workflows/backend-ci.yml' ]
 
 jobs:
   test-and-build:
     runs-on: ubuntu-latest
 
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: rootpassword
-          MYSQL_DATABASE: saanssaathi_test
-          MYSQL_USER: saanssaathi_user
-          MYSQL_PASSWORD: testpassword
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h localhost"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=10
-
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Java 21
+      - name: Set up Java 17 (Eclipse Temurin)
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
+          java-version: '17'
           distribution: 'temurin'
 
-      - name: Cache Maven dependencies
-        uses: actions/cache@v3
+      - name: Cache Maven packages
+        uses: actions/cache@v4
         with:
-          path: ~/.m2
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
 
-      - name: Run tests
+      - name: Run Backend Test Suite (36 Tests)
         working-directory: backend
         env:
-          DB_URL: jdbc:mysql://localhost:3306/saanssaathi_test?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-          DB_USERNAME: saanssaathi_user
-          DB_PASSWORD: testpassword
+          DB_URL: jdbc:sqlite:saanssaathi.db
           JWT_SECRET: test-secret-key-for-ci-environment-must-be-at-least-32-chars-long
-          OPENAQ_API_KEY: test_openaq_key_not_used_in_unit_tests
-          GEMINI_API_KEY: test_gemini_key_not_used_in_unit_tests
+          OPENAQ_API_KEY: test_openaq_mock_key
+          GEMINI_API_KEY: test_gemini_mock_key
           FRONTEND_URL: http://localhost:5173
-          SPRING_PROFILES_ACTIVE: test
-        run: mvn test
+        run: mvn clean test
 
-      - name: Build JAR (skip tests - already ran)
+      - name: Package Production JAR
         working-directory: backend
         run: mvn package -DskipTests
 
-      - name: Upload JAR artifact
-        uses: actions/upload-artifact@v3
+      - name: Upload JAR Artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: backend-jar
+          name: saanssaathi-backend-jar
           path: backend/target/*.jar
           retention-days: 7
