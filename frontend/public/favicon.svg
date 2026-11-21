@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="100%" height="100%">
+  <defs>
+    <linearGradient id="leafGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="50%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#34d399" />
+    </linearGradient>
+    <linearGradient id="skyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+    <linearGradient id="glowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b1329" />
+      <stop offset="100%" stop-color="#1e293b" />
+    </linearGradient>
+    <filter id="subtleGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#10b981" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- Background circle badge -->
+  <rect width="128" height="128" rx="32" fill="url(#glowGrad)" />
+  <rect width="124" height="124" x="2" y="2" rx="30" fill="none" stroke="#10b981" stroke-width="2" stroke-opacity="0.3" />
+
+  <!-- Clean Air Breeze Waves -->
+  <path d="M 22 46 C 42 36, 62 56, 82 46 C 96 39, 106 44, 110 48" 
+        fill="none" stroke="url(#skyGrad)" stroke-width="5" stroke-linecap="round" stroke-opacity="0.85"/>
+  <path d="M 18 64 C 38 54, 58 74, 86 62 C 98 57, 108 61, 112 65" 
+        fill="none" stroke="#38bdf8" stroke-width="4.5" stroke-linecap="round" stroke-opacity="0.7"/>
+
+  <!-- Vibrant Protective Green Leaf (Lungs / Life motif) -->
+  <g filter="url(#subtleGlow)">
+    <!-- Main leaf body -->
+    <path d="M 64 26 C 88 32, 106 62, 94 92 C 84 108, 62 112, 44 98 C 28 84, 30 52, 64 26 Z" 
+          fill="url(#leafGrad)" />
+    <!-- Leaf Center Stem / Vein -->
+    <path d="M 64 26 C 62 52, 58 78, 44 98" 
+          fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-opacity="0.75" />
+    <!-- Branching Leaf Veins -->
+    <path d="M 60 48 C 72 44, 82 50, 88 56" 
+          fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-opacity="0.6" />
+    <path d="M 58 66 C 70 64, 78 72, 82 78" 
+          fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-opacity="0.6" />
+    <path d="M 54 82 C 44 80, 38 72, 36 66" 
+          fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-opacity="0.5" />
+  </g>
+
+  <!-- Sparkle / Clean Air Spark -->
+  <circle cx="98" cy="30" r="4" fill="#38bdf8" />
+  <circle cx="106" cy="40" r="2.5" fill="#34d399" />
+  <circle cx="26" cy="88" r="3" fill="#38bdf8" opacity="0.8" />
+</svg>

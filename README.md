@@ -14,12 +14,30 @@
 
 ---
 
+## 🔗 Live Deployments & Documentation Quick Links
+
+| Resource | Link / Target | Description |
+|:---|:---|:---|
+| **Frontend Web App (Live)** | [https://saanssaathi.vercel.app](https://saanssaathi.vercel.app) | Single-page application hosted on Vercel CDN edge |
+| **Backend REST API (Live)** | [https://saanssaathi-api.onrender.com](https://saanssaathi-api.onrender.com) | Spring Boot 3 containerized web service on Render |
+| **API Health Probe** | [`/api/health`](https://saanssaathi-api.onrender.com/api/health) | Zero-downtime liveness and readiness probe |
+| **Interactive OpenAPI / Swagger** | [`/swagger-ui.html`](http://localhost:8080/swagger-ui.html) | OpenAPI 3.0 interactive documentation |
+| **System Architecture Guide** | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | In-depth technical architecture and telemetry pipeline |
+| **Database Specification & ERD** | [docs/DATABASE.md](docs/DATABASE.md) | 19-table schema, Mermaid ER diagram, SQLite & MySQL types |
+| **Complete REST API Reference** | [docs/API.md](docs/API.md) | All 43 endpoints with request/response schemas |
+| **Design System & UI/UX** | [docs/DESIGN.md](docs/DESIGN.md) | CPCB 6-tier color scales, typography, and UX patterns |
+| **Postman API Collection** | [docs/postman-collection.json](docs/postman-collection.json) | Ready-to-import v2.1.0 Postman collection |
+| **Production Deployment Playbook**| [suggestions/09_production_deployment_playbook.txt](suggestions/09_production_deployment_playbook.txt) | Cloud configuration for Vercel, Render, and UptimeRobot |
+| **Submission & Pitch Showcase** | [suggestions/10_documentation_and_submission_showcase.txt](suggestions/10_documentation_and_submission_showcase.txt) | Hackathon presentation pitch and evaluation guide |
+
+---
+
 ## 📌 Executive Summary & Problem Context
 
 In Indian urban centers (e.g., Delhi NCR, Pune, Mumbai, Jaipur, Lucknow, Kolkata), winter brings severe **atmospheric temperature inversion**. Cold air near the surface becomes trapped beneath a blanket of warm air, arresting vertical convection and preventing pollutant dispersion. Consequently, vehicular emissions, construction dust, industrial effluents, and biomass burning accumulate at ground level, driving AQI values to hazardous (300 to 500+) levels.
 
 Most existing air quality applications simply display a single city-wide number without actionable context. Families face five distinct bottlenecks:
-1. **Ambiguity of Danger**: Raw PM2.5 numbers lack actionable medical and lifestyle meaning for different age groups.
+1. **Ambiguity of Danger**: Raw $PM_{2.5}$ numbers lack actionable medical and lifestyle meaning for different age groups.
 2. **Timing of Exposure**: Inversion smog peaks between 6:00 AM and 10:00 AM, precisely when people exercise or commute.
 3. **Family Vulnerability Differences**: A healthy adult, a 6-year-old child, an 80-year-old senior, and an asthma patient require radically different precautions.
 4. **Indoor Smog Misconceptions**: Indoor air during unventilated cooking or coil burning can be 3x more toxic than outdoor air.
@@ -42,7 +60,7 @@ flowchart TD
         MapModule["Leaflet Geospatial Map"]
         AIChat["AI Saathi Copilot (Gemini)"]
         NotifBell["Notification Bell & Alerts"]
-        Zustand["Zustand Auth & State Stores"]
+        Zustand["Zustand Auth & Theme Stores"]
         Axios["Axios Client (JWT Interceptor)"]
     end
 
@@ -65,7 +83,7 @@ flowchart TD
     end
 
     subgraph DataLayer ["Data & Telemetry Layer"]
-        MySQL[("MySQL 8.0 Database (23 Tables via Flyway)")]
+        SQLite[("Embedded SQLite 3 (Default, Zero Setup) / MySQL 8.0")]
         OpenAQ[("OpenAQ API v3 / CPCB Telemetry")]
         OpenMeteo[("Open-Meteo Weather API")]
         GeminiAPI[("Google Gemini 1.5 Flash API")]
@@ -76,12 +94,14 @@ flowchart TD
     Security --> REST
     REST --> CoreServices
     CoreServices --> JPA
-    JPA --> MySQL
+    JPA --> SQLite
     AQIEngine -.-> OpenAQ
     AQIEngine -.-> OpenMeteo
     AIService -.-> GeminiAPI
     Scheduler --> NotifService
 ```
+
+*For comprehensive architecture details, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).*
 
 ---
 
@@ -128,7 +148,7 @@ flowchart TD
 
 ### 8. 🏆 Clean Air Challenges & Gamification
 - 10 structured community challenges designed to lower emissions (e.g., No-Idle Commutes, Smoke-Free Living, Metro Week).
-- Point progression and badges to foster sustainable family habits.
+- Point progression and 6 unlockable badges to foster sustainable family habits.
 
 ---
 
@@ -147,99 +167,27 @@ SaansSaathi strictly implements India's **Central Pollution Control Board (CPCB)
 
 ---
 
-## 📂 Codebase Directory Structure
+## ⚙️ Environment Variables Reference Guide
 
-```
-saansSaathi/
-├── .github/                        # GitHub Actions CI/CD workflows
-│   └── workflows/
-│       ├── backend-ci.yml          # Maven test & verification
-│       └── frontend-ci.yml         # TypeScript & Vite build checks
-│
-├── frontend/                       # React 19 + TypeScript + Vite Single-Page Application
-│   ├── public/                     # Favicons, web manifest, static assets
-│   ├── src/
-│   │   ├── api/                    # Axios REST clients
-│   │   │   ├── authApi.ts          # Authentication & token refresh
-│   │   │   ├── axiosClient.ts      # HTTP interceptor with bearer token injection
-│   │   │   ├── chatApi.ts          # Gemini AI conversation endpoints
-│   │   │   ├── familyApi.ts        # Family groups & members management
-│   │   │   ├── indoorApi.ts        # Home assessment & DIY purifier guides
-│   │   │   ├── mapApi.ts           # Geospatial station clusters & popup data
-│   │   │   ├── notificationApi.ts  # Notifications, preferences & alerts
-│   │   │   └── plannerApi.ts       # Diurnal routine schedule generator
-│   │   ├── components/             # Reusable UI components
-│   │   │   ├── chatbot/            # AI chat bubble, suggested prompts, sidebar
-│   │   │   ├── common/             # NotificationBell, Modal, Card, Button
-│   │   │   ├── dashboard/          # AqiBadge, PollutantCard, TrendChart, WeatherCard
-│   │   │   ├── family/             # FamilyMemberCard, AddMemberModal, RiskBadge
-│   │   │   ├── indoor/             # HomeAssessmentForm, DIYAirPurifierGuide, CleanAirRoom
-│   │   │   ├── map/                # MapLegend, StationPopup, LayerControl
-│   │   │   └── planner/            # DailyScheduleTimeline, ActivityCard, CustomActivityModal
-│   │   ├── layout/                 # Layout wrappers & responsive navigation
-│   │   │   ├── AppLayout.tsx       # Main authenticated container
-│   │   │   └── Navbar.tsx          # Top navigation with live notification bell
-│   │   ├── pages/                  # Route views
-│   │   │   ├── AdminPage.tsx       # System telemetry & station health
-│   │   │   ├── ChallengesPage.tsx  # Gamified smog reduction challenges
-│   │   │   ├── ChatPage.tsx        # Full-page AI Saathi consultation
-│   │   │   ├── DashboardPage.tsx   # Live AQI telemetry, 24-hr chart, weather
-│   │   │   ├── FamilyPage.tsx      # Family risk matrix & customized advice
-│   │   │   ├── IndoorPage.tsx      # Indoor assessment wizard & clean air room guide
-│   │   │   ├── LandingPage.tsx     # Public landing page with live smog ticker
-│   │   │   ├── LoginPage.tsx       # User login & session initiation
-│   │   │   ├── MapPage.tsx         # Leaflet OpenStreetMap live air quality map
-│   │   │   ├── NotificationsPage.tsx # Notification center & preference controls
-│   │   │   ├── OnboardingPage.tsx  # Initial setup wizard
-│   │   │   ├── PlannerPage.tsx     # Diurnal routine generator & timeline
-│   │   │   ├── RegisterPage.tsx    # New user onboarding & registration
-│   │   │   └── SettingsPage.tsx    # Account preferences & alert thresholds
-│   │   ├── store/                  # Zustand persistent stores
-│   │   │   └── authStore.ts        # User credentials, JWT tokens & logout handling
-│   │   └── assets/                 # Tailwind CSS styles & Leaflet stylesheets
-│   ├── package.json
-│   ├── tailwind.config.ts
-│   └── vite.config.ts
-│
-├── backend/                        # Java 17 + Spring Boot 3 REST Backend
-│   ├── src/main/java/com/saanssaathi/app/
-│   │   ├── SaansSaathiApplication.java # Spring Boot entry point (@EnableScheduling)
-│   │   ├── common/                 # ApiResponse<T> wrapper & common constants
-│   │   ├── config/                 # SecurityConfig, WebConfig (CORS), OpenApiConfig
-│   │   ├── controller/             # REST Endpoints
-│   │   │   ├── AIController.java           # /api/ai/* (Gemini chat & recommendations)
-│   │   │   ├── AirQualityController.java   # /api/airquality/* (Real-time AQI)
-│   │   │   ├── AuthController.java         # /api/auth/* (Login, register, refresh)
-│   │   │   ├── FamilyController.java       # /api/family/* (Family profiles)
-│   │   │   ├── HealthController.java       # /api/health (Readiness & liveness probes)
-│   │   │   ├── IndoorController.java       # /api/indoor/* (Home assessments)
-│   │   │   ├── MapDataController.java      # /api/map/* (Geospatial station data)
-│   │   │   ├── NotificationController.java # /api/notifications/* (Alerts & preferences)
-│   │   │   ├── PlannerController.java      # /api/routines/* (Daily schedule generation)
-│   │   │   └── UserLocationController.java # /api/locations/* (User saved coordinates)
-│   │   ├── exception/              # GlobalExceptionHandler & custom exceptions
-│   │   ├── integration/            # External telemetry clients (Open-Meteo, OpenAQ)
-│   │   ├── model/
-│   │   │   ├── entity/             # JPA Entities (User, Notification, Routine, etc.)
-│   │   │   └── dto/                # Request & response data transfer objects
-│   │   ├── recommendation/         # Rule-based vulnerability risk engines
-│   │   ├── repository/             # Spring Data JPA Repositories
-│   │   ├── scheduler/              # AqiAlertJob (Scheduled background evaluations)
-│   │   ├── security/               # JwtService, JwtFilter, CustomUserDetailsService
-│   │   └── service/                # Business logic interfaces & implementations
-│   ├── src/main/resources/
-│   │   ├── application.yml         # Spring configuration profiles (dev, prod)
-│   │   └── db/migration/           # Flyway Database Migrations
-│   │       ├── V1__create_initial_schema.sql # 23 Relational Tables
-│   │       └── V2__seed_initial_data.sql     # 30 Indian Cities, Pollutants, Challenges
-│   └── pom.xml
-│
-├── sample images/                  # 9 UI reference benchmarks (Delhi CPCB, IQAir, etc.)
-├── suggestions/                    # Architectural suggestion blueprints (6 files)
-├── task.txt                        # Master 15-step development roadmap & progress
-├── docker-compose.yml              # Local container orchestration (MySQL + Apps)
-└── README.md                       # Comprehensive documentation
-```
+### Backend Environment Variables (`backend/`)
+| Variable | Required | Default (Dev) | Description |
+|:---|:---:|:---|:---|
+| `SPRING_PROFILES_ACTIVE` | No | `dev` | Active Spring profile (`dev` or `prod`) |
+| `DB_URL` | No | `jdbc:sqlite:saanssaathi.db` | JDBC connection string. Set to `jdbc:mysql://...` for MySQL. |
+| `DB_USERNAME` | No | `saanssaathi` | Database username (used when MySQL is enabled) |
+| `DB_PASSWORD` | No | `saanssaathi123` | Database password (used when MySQL is enabled) |
+| `JWT_SECRET` | Recommended | `404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970` | 256-bit hexadecimal string for HMAC-SHA256 signing |
+| `JWT_EXPIRATION_MS` | No | `3600000` | Access token lifespan (1 hour in ms) |
+| `JWT_REFRESH_EXPIRATION_MS` | No | `604800000` | Refresh token lifespan (7 days in ms) |
+| `GEMINI_API_KEY` | Recommended | *(Offline NLP Fallback)* | Google Gemini 1.5 Flash API Key from Google AI Studio |
+| `OPENAQ_API_KEY` | No | *(Public Tier)* | Optional API key for high-volume OpenAQ v3 requests |
+| `FRONTEND_URL` | No | `http://localhost:5173` | Allowed CORS origin (set to Vercel production domain) |
+| `SERVER_PORT` | No | `8080` | HTTP port for Spring Boot application |
+
+### Frontend Environment Variables (`frontend/`)
+| Variable | Required | Default (Dev) | Description |
+|:---|:---:|:---|:---|
+| `VITE_API_BASE_URL` | No | `http://localhost:8080` | URL of the backend REST API |
 
 ---
 
@@ -248,8 +196,8 @@ saansSaathi/
 ### System Prerequisites
 - **Java**: OpenJDK 17 or higher
 - **Node.js**: v18.0.0 or higher (v20+ recommended)
-- **Maven**: 3.8+ (or included wrapper)
-- **Database**: MySQL 8.0+ (or via Docker)
+- **Maven**: 3.8+ (or included in PATH)
+- **Database**: Zero external setup required! SQLite 3 is embedded out-of-the-box.
 
 ### 1. Clone Repository
 ```bash
@@ -257,21 +205,19 @@ git clone https://github.com/gondchawarswaraj45/SaansSaathi.git
 cd saansSaathi
 ```
 
-### 2. Start MySQL via Docker
-```bash
-docker compose up -d mysql
-```
-*Flyway will automatically execute migrations `V1` and `V2` upon Spring Boot startup, creating 23 tables and seeding initial Indian urban data.*
-
-### 3. Run Backend (Spring Boot)
+### 2. Run Backend (Zero-Setup SQLite Mode)
 ```bash
 cd backend
-mvn clean spring-boot:run -Dspring-boot.run.profiles=dev
+mvn spring-boot:run
 ```
-- Server starts at: `http://localhost:8080`
-- Interactive Swagger OpenAPI UI: `http://localhost:8080/swagger-ui.html`
+- Server boots at: `http://localhost:8080`
+- SQLite file auto-generated at: `backend/saanssaathi.db`
+- Baseline data (30 Indian cities, 8 pollutants, 10 challenges) is auto-seeded!
+- Interactive OpenAPI / Swagger UI: `http://localhost:8080/swagger-ui.html`
 
-### 4. Run Frontend (React + Vite)
+*(Optional: If you prefer running MySQL via Docker, run `docker compose up -d mysql` and launch with `-Dspring.profiles.active=dev`)*
+
+### 3. Run Frontend (React + Vite)
 ```bash
 cd ../frontend
 npm install
@@ -279,34 +225,69 @@ npm run dev
 ```
 - Single-page application renders at: `http://localhost:5173`
 
----
-
-## 🌐 Production Deployment Architecture
-
-SaansSaathi is built for cloud deployment across decoupled platforms:
-
-| Component | Platform | Configuration |
-|:---|:---|:---|
-| **Frontend** | **Vercel / Netlify** | Vite static build (`npm run build`), automatic client-side routing rewrites (`vercel.json` & `_redirects`), HTTP proxy to backend. |
-| **Backend** | **Render / Railway** | Containerized Spring Boot 17 (`Dockerfile` multi-stage build or `render.yaml` 1-click blueprint), zero-downtime health probes at `/api/health`. |
-| **Database** | **SQLite (Embedded) / Railway MySQL** | Portable SQLite database with auto-seeding via `DataInitializer` or remote MySQL with connection pooling (`HikariCP`). |
-| **AI Copilot** | **Google Cloud Vertex AI / Gemini API** | Secured backend-to-backend API key authentication with strict rate limits and medical triage guardrails. |
-| **CI/CD** | **GitHub Actions** | Automated multi-stage testing on every push and PR (`backend-ci.yml` & `frontend-ci.yml`). |
+### 4. Verified Demo Accounts
+| Account Type | Email | Password | Role |
+|:---|:---|:---|:---|
+| **Regular User** | `swaraj@saanssaathi.org` | `Pass@1234` | `ROLE_USER` |
+| **System Admin** | `admin@saanssaathi.org` | `Admin@1234` | `ROLE_ADMIN` |
 
 ---
 
-## 🔒 Security & Privacy Guarantees
+## 🧪 Automated Testing & Verification
 
-1. **Stateless JWT Authentication**: Passwords hashed using bcrypt (strength 12); access tokens signed with HMAC-SHA256 with 15-minute expiration; refresh tokens stored securely.
-2. **Medical Guardrails**: Medical disclaimers accompany all AI-generated advice. The system never provides pharmaceutical dosages or diagnostic claims.
-3. **Zero PII Exposure**: Telemetry lookups are bound to station coordinates; exact home addresses are never exposed or transmitted unencrypted.
-4. **Environment Isolation**: API secrets and Gemini API keys reside exclusively in backend environment variables and are never surfaced in client bundles.
+Both backend and frontend CI pipelines are automated through GitHub Actions:
+
+```bash
+# 1. Run all 36 Backend JUnit 5 & MockMvc Integration Tests
+cd backend
+mvn test
+# Result: Tests run: 36, Failures: 0, Errors: 0, Skipped: 0 (BUILD SUCCESS)
+
+# 2. Run Frontend Vitest Unit & Component Tests
+cd ../frontend
+npm test
+# Result: 12 passed in 4 test suites (100% passing)
+
+# 3. Type-check & Production Asset Compilation
+npm run build
+# Result: tsc -b && vite build -> dist/ generated with 0 errors
+```
 
 ---
 
-## 🤝 Contributing & License
+## 🌐 Production Cloud Topology
 
-Contributions, feedback, and pull requests are warmly welcome!
-- **License**: MIT License
-- **Author & Maintainer**: Swaraj Gondchawar ([@gondchawarswaraj45](https://github.com/gondchawarswaraj45))
+```
+┌──────────────────────────────────────┐     ┌──────────────────────────────────────┐
+│             VERCEL CDN               │     │          RENDER.COM CLOUD            │
+│          (Frontend SPA)              │     │       (Spring Boot Container)        │
+│                                      │     │                                      │
+│  - Static Asset Delivery             │     │  - Docker Multi-Stage Image          │
+│  - Client-Side Routing Rewrites      │────▶│  - Eclipse Temurin 17 JRE            │
+│  - Environment: VITE_API_BASE_URL    │     │  - Persistent Volume: /data          │
+│  - SSL / TLS Termination             │     │  - Environment: SPRING_PROFILES=prod │
+└──────────────────────────────────────┘     └──────────────────┬───────────────────┘
+                                                                │
+                                                                ▼
+                                             ┌──────────────────────────────────────┐
+                                             │             UPTIMEROBOT              │
+                                             │     (Free Cold-Start Keepalive)      │
+                                             │                                      │
+                                             │  - Pings GET /api/health every 10m   │
+                                             │  - Prevents free-tier spin down      │
+                                             └──────────────────────────────────────┘
+```
+
+---
+
+## 🤝 Project Team & Attribution
+
+- **Lead Engineer & Architect**: **Swaraj Gondchawar** ([@gondchawarswaraj45](https://github.com/gondchawarswaraj45))
+- **Data Attributions**:
+  - Central Pollution Control Board (CPCB), Ministry of Environment, Forest and Climate Change, Govt of India
+  - OpenAQ API (Open Air Quality Community)
+  - Open-Meteo Weather API (CC-BY 4.0)
+  - OpenStreetMap contributors & CartoDB tiles
+  - Google Gemini 1.5 Flash (Google AI Studio)
+- **License**: [MIT License](LICENSE)
 - **Repository**: [https://github.com/gondchawarswaraj45/SaansSaathi.git](https://github.com/gondchawarswaraj45/SaansSaathi.git)

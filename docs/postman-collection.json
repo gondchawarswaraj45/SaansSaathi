@@ -1,0 +1,650 @@
+{
+  "info": {
+    "_postman_id": "saanssaathi-api-v1",
+    "name": "SaansSaathi REST API Collection",
+    "description": "Comprehensive Postman collection for the SaansSaathi Urban Air Quality & Family Health Protection Platform.\n\nIncludes endpoints for Authentication, Real-time AQI Telemetry, Family Health Vulnerability Profiles, Indoor Air Quality & DIY Purifiers, AI Saathi Copilot (Gemini), Diurnal Routine Planner, Interactive Geospatial Map, Push Alerts, Gamified Challenges, and Telemetry Administration.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01. System Health",
+      "item": [
+        {
+          "name": "Health Probe (Liveness & Readiness)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Returns status UP and current server UTC timestamp."
+          }
+        }
+      ]
+    },
+    {
+      "name": "02. Authentication",
+      "item": [
+        {
+          "name": "Register New User",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"swaraj.tester@example.com\",\n  \"password\": \"SecurePass123!\",\n  \"fullName\": \"Swaraj Test User\",\n  \"city\": \"Delhi NCR\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.accessToken) {",
+                  "    pm.collectionVariables.set('token', jsonData.data.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', jsonData.data.refreshToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"swaraj.tester@example.com\",\n  \"password\": \"SecurePass123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Access Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "refresh"]
+            }
+          }
+        },
+        {
+          "name": "Get Authenticated User Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Logout User",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03. Air Quality Telemetry",
+      "item": [
+        {
+          "name": "Get Current AQI (City / Coords)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/air-quality/current?city=Delhi NCR",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "air-quality", "current"],
+              "query": [
+                { "key": "city", "value": "Delhi NCR" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Monitoring Stations for City",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/air-quality/stations?city=Delhi NCR",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "air-quality", "stations"],
+              "query": [
+                { "key": "city", "value": "Delhi NCR" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get 24-hr Historical Readings for Station",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/air-quality/history?stationId=1&days=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "air-quality", "history"],
+              "query": [
+                { "key": "stationId", "value": "1" },
+                { "key": "days", "value": "1" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04. Family Health Management",
+      "item": [
+        {
+          "name": "Get User Family Group",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/family",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "family"]
+            }
+          }
+        },
+        {
+          "name": "Create Family Group",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Gondchawar Household\",\n  \"primaryCity\": \"Pune\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/family",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "family"]
+            }
+          }
+        },
+        {
+          "name": "List Family Members",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/family/members",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "family", "members"]
+            }
+          }
+        },
+        {
+          "name": "Add Family Member with Sensitivity Profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Aarav\",\n  \"age\": 8,\n  \"ageGroup\": \"CHILD\",\n  \"sensitiveCategory\": \"RESPIRATORY\",\n  \"dailyOutdoorHours\": 2,\n  \"exercisePreference\": \"OUTDOOR\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/family/members",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "family", "members"]
+            }
+          }
+        },
+        {
+          "name": "Get Family Health Risk Recommendations",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/family/recommendations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "family", "recommendations"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "05. Indoor Air Assistant",
+      "item": [
+        {
+          "name": "Submit Indoor Assessment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roomCount\": 3,\n  \"hasAirPurifier\": false,\n  \"hasExhaustFan\": true,\n  \"cookingFuel\": \"LPG\",\n  \"usesIncense\": true,\n  \"usesMosquitoCoil\": false,\n  \"windowSealingQuality\": \"MEDIUM\",\n  \"budgetRupees\": 2500\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/indoor/assessment",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "indoor", "assessment"]
+            }
+          }
+        },
+        {
+          "name": "Get Latest Indoor Assessment",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/indoor/assessment",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "indoor", "assessment"]
+            }
+          }
+        },
+        {
+          "name": "Get Clean Air Room Blueprint",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/indoor/clean-air-room",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "indoor", "clean-air-room"]
+            }
+          }
+        },
+        {
+          "name": "Get DIY Box-Fan Air Purifier Guide",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/indoor/diy-purifier-guide",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "indoor", "diy-purifier-guide"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "06. AI Saathi Copilot (Gemini)",
+      "item": [
+        {
+          "name": "Send Chat Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sessionId\": null,\n  \"message\": \"Is it safe for my 8-year-old asthmatic child to play cricket in Delhi today?\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ai", "chat"]
+            }
+          }
+        },
+        {
+          "name": "List User Chat Sessions",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/chat/sessions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ai", "chat", "sessions"]
+            }
+          }
+        },
+        {
+          "name": "Explain AQI Concept / Pollutant",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/ai/explain?term=pm25",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ai", "explain"],
+              "query": [
+                { "key": "term", "value": "pm25" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "07. Daily Routine Planner",
+      "item": [
+        {
+          "name": "Get Today's Routine",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/routines",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "routines"]
+            }
+          }
+        },
+        {
+          "name": "Generate Inversion-Aware Routine",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"2026-11-21\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/routines/generate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "routines", "generate"]
+            }
+          }
+        },
+        {
+          "name": "Get Weekly Routine Compliance",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/routines/weekly",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "routines", "weekly"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "08. Geospatial Map Telemetry",
+      "item": [
+        {
+          "name": "Get Map Stations within Bounding Box",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/map/stations?sw_lat=28.4&sw_lng=76.8&ne_lat=28.9&ne_lng=77.4",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "map", "stations"],
+              "query": [
+                { "key": "sw_lat", "value": "28.4" },
+                { "key": "sw_lng", "value": "76.8" },
+                { "key": "ne_lat", "value": "28.9" },
+                { "key": "ne_lng", "value": "77.4" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Station Popup Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/map/stations/1/popup",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "map", "stations", "1", "popup"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "09. Notifications & Smog Alerts",
+      "item": [
+        {
+          "name": "Get Notification List",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications"]
+            }
+          }
+        },
+        {
+          "name": "Get Unread Count",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/unread-count",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications", "unread-count"]
+            }
+          }
+        },
+        {
+          "name": "Get User Notification Preferences",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/preferences",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications", "preferences"]
+            }
+          }
+        },
+        {
+          "name": "Trigger Test Smog Alert",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/test-alert",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications", "test-alert"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. Clean Air Challenges",
+      "item": [
+        {
+          "name": "List All Active Challenges",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/challenges",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "challenges"]
+            }
+          }
+        },
+        {
+          "name": "Join Challenge",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/challenges/1/join",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "challenges", "1", "join"]
+            }
+          }
+        },
+        {
+          "name": "Get User Earned Badges",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/challenges/badges",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "challenges", "badges"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "11. Admin & Platform Telemetry",
+      "item": [
+        {
+          "name": "Get Platform Telemetry Metrics",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "stats"]
+            }
+          }
+        },
+        {
+          "name": "Get Upstream API Health Probes",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/api-health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "api-health"]
+            }
+          }
+        },
+        {
+          "name": "Broadcast Emergency Smog Advisory",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"city\": \"Delhi NCR\",\n  \"title\": \"CRITICAL SMOG ALERT: GRAP Stage IV Implemented\",\n  \"message\": \"AQI has crossed 450 across all stations. Restrict all outdoor exposure. Schools advised hybrid operation.\",\n  \"severity\": \"EMERGENCY\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/notifications/broadcast",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "notifications", "broadcast"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

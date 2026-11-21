@@ -1,0 +1,25 @@
+{
+  "name": "SaansSaathi - Urban Air Quality & Family Health",
+  "short_name": "SaansSaathi",
+  "description": "AI-Powered Urban Air Quality & Family Health Protection Platform for Winter Smog Mitigation in Indian Cities",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b1329",
+  "theme_color": "#10b981",
+  "orientation": "portrait-primary",
+  "lang": "en-IN",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "128x128 192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": [
+    "health",
+    "lifestyle",
+    "weather",
+    "utilities"
+  ]
+}

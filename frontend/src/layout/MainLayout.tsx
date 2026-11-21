@@ -48,14 +48,24 @@ export default function MainLayout() {
             </div>
           </div>
 
+          {/* Medical Disclaimer Banner */}
+          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-300 flex items-start gap-2.5">
+            <span className="font-bold uppercase tracking-wider text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-800 dark:text-amber-200 shrink-0">Health Disclaimer</span>
+            <p className="leading-relaxed">
+              SaansSaathi provides air quality telemetry and behavioral guidance for awareness only. It does not provide medical diagnosis, treatment plans, or pharmaceutical recommendations. Individuals with asthma, COPD, cardiovascular conditions, or pregnancy should consult a qualified physician for personalized care.
+            </p>
+          </div>
+
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-muted-foreground">
             <p>© {new Date().getFullYear()} SaansSaathi. Open Source MIT License. Engineered for Indian Urban Environments.</p>
-            <div className="flex items-center gap-4">
-              <span>Data: CPCB & OpenAQ</span>
+            <div className="flex items-center gap-4 flex-wrap justify-center">
+              <span>Data: <a href="https://cpcb.nic.in" target="_blank" rel="noopener noreferrer" className="hover:underline">CPCB</a> & <a href="https://openaq.org" target="_blank" rel="noopener noreferrer" className="hover:underline">OpenAQ</a></span>
               <span>•</span>
-              <span>Health Guidelines: WHO & NCDC</span>
+              <span>Weather: <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer" className="hover:underline">Open-Meteo</a></span>
               <span>•</span>
-              <span>AI Copilot: Gemini</span>
+              <span>Maps: <a href="https://www.openstreetmap.org" target="_blank" rel="noopener noreferrer" className="hover:underline">OpenStreetMap</a></span>
+              <span>•</span>
+              <span>AI Copilot: Google Gemini</span>
             </div>
           </div>
         </div>
